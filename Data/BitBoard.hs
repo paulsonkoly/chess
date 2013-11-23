@@ -3,12 +3,16 @@ module Data.BitBoard
    , setBB
    , andBB
    , orBB
+   , xorBB
+   , shiftBB
+   , toList
    )
    where
 
 
 import           Data.Int
 import           Data.Bits
+import           Data.Bits.Extras
 import           Data.Monoid
 
 
@@ -27,10 +31,23 @@ instance Monoid BitBoard where
    mappend (BitBoard a) (BitBoard b) = BitBoard $ a .|. b 
 
 
-setBB :: Int -> Int -> BitBoard
-setBB a b = BitBoard $ bit $ a * 8 + b
+setBB :: Int -> BitBoard
+setBB n = BitBoard $ bit n 
 
-andBB, orBB :: BitBoard -> BitBoard -> BitBoard
+andBB, orBB, xorBB :: BitBoard -> BitBoard -> BitBoard
 
 orBB                            = mappend
 andBB (BitBoard a) (BitBoard b) = BitBoard $ a .&. b
+xorBB (BitBoard a) (BitBoard b) = BitBoard $ a `xor` b
+
+
+shiftBB :: Int -> BitBoard -> BitBoard
+shiftBB i (BitBoard b) = BitBoard $ shift b i
+
+
+toList :: BitBoard -> [ Int ]
+toList (BitBoard b) = if b == 0
+   then []
+   else
+      let bp = fromIntegral $ trailingZeros b
+      in  bp : toList (BitBoard $ b `xor` bit bp)
