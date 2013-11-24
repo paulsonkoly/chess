@@ -18,6 +18,9 @@ executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
   ghc-options:         -Wall -fwarn-tabs -O2
+                       -funbox-strict-fields -threaded -rtsopts
+                       -fspec-constr-count=24
+                       -funfolding-use-threshold=32
 
   -- other-modules:       
   build-depends:       base            ==4.6.*,
