@@ -40,17 +40,17 @@ opp C.White = C.Black
 doMoveM :: (MonadState Board m) => Move -> m ()
 doMoveM m = do
    let
-      f  = setBB $ view from m
-      t  = setBB $ view to   m
-      ft = f `xorBB` t
+      f  = bit $ m^.from
+      t  = bit $ m^.to
+      ft = f `xor` t
    c <- liftM (view next) get
    assign next $ opp c
-   piecesByColour c               %= xorBB ft
-   piecesByType   (view piece  m) %= xorBB ft
-   when (isJust $ view capturedPiece m) $ do
-      let cp = fromJust $ view capturedPiece m
-      piecesByColour (opp c) %= xorBB t
-      piecesByType   cp      %= xorBB t
+   piecesByColour c        %= xor ft
+   piecesByType (m^.piece) %= xor ft
+   when (isJust $ m^.capturedPiece) $ do
+      let cp = fromJust $ m^.capturedPiece
+      piecesByColour (opp c) %= xor t
+      piecesByType   cp      %= xor t
 
 
 -- | Unmakes the @Move@ on a @Board@
@@ -71,11 +71,11 @@ attackBB :: C.PieceType -> C.Color -> BitBoard -> BitBoard
 attackBB pt pl bb = case pt of
    C.Pawn ->
       case pl of
-         C.White -> shiftBB   7  bb `orBB` shiftBB    9 bb
-         C.Black -> shiftBB (-7) bb `orBB` shiftBB (-9) bb
+         C.White -> shift bb   7  .|. shift bb    9
+         C.Black -> shift bb (-7) .|. shift bb (-9)
    C.Knight ->
-      shiftBB 6    bb `orBB` shiftBB 15    bb `orBB` shiftBB 17    bb `orBB` shiftBB 9    bb `orBB`
-      shiftBB (-6) bb `orBB` shiftBB (-15) bb `orBB` shiftBB (-17) bb `orBB` shiftBB (-9) bb
+      shift bb 6    .|. shift bb 15    .|. shift bb 17    .|. shift bb 9    .|.
+      shift bb (-6) .|. shift bb (-15) .|. shift bb (-17) .|. shift bb (-9) 
    _ -> error "oops"
 
 
@@ -86,10 +86,10 @@ captures b pt at = do
    let
       me = view next b
       op = opp me
-      ps = view (piecesByColour me) b `andBB` view (piecesByType pt) b
+      ps = b^.piecesByColour me .&. b^.piecesByType pt
    do
-      q <- toList $ view (piecesByColour op) b `andBB` view (piecesByType at) b `andBB` attackBB pt me ps
-      o <- toList $ ps `andBB` attackBB pt op (setBB q)
+      q <- toList $ b^.piecesByColour op .&. b^.piecesByType at .&. attackBB pt me ps
+      o <- toList $ ps .&. attackBB pt op (bit q)
       return $ Move o q pt $ Just at
 
 

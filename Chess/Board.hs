@@ -1,6 +1,17 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE Rank2Types      #-}
+
+{-| Our @BitBoard@ representation of the current state of the game
+  
+   In search it's also used for storing /nodes/. It should support
+   fast move and unmove operations. To query for instance the white
+   pawns one can do
+
+   >>> (b^.whitePieces) .&. (b^.pawns)
+
+ -}
 module Chess.Board
-   ( Board(..)
+   ( Board
    , fromFEN
    -- * Board lenses
    , whitePieces
@@ -12,7 +23,7 @@ module Chess.Board
    , kings
    , pawns
    , next
-   -- * Lens by type
+   -- * Lenses by type
    , piecesByColour
    , piecesByType
    )
@@ -28,12 +39,6 @@ import qualified Chess.FEN as C
 
 import           Data.BitBoard
 
-{-| Our BitBoard representation of the current state of the game
- -
- - In search it's also used for storing "nodes". It should support
- - fast move and unmove operations. To query for instance the white
- - pawns one can do @_whitePieces `andBB` _pawns@.
- -}
 data Board = Board
    { _whitePieces :: BitBoard
    , _blackPieces :: BitBoard
@@ -46,6 +51,7 @@ data Board = Board
    , _next        :: C.Color
    } deriving Show
 
+
 $(makeLenses ''Board)
 
 
@@ -53,12 +59,18 @@ emptyBoard :: Board
 emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White
 
 
-piecesByColour :: Functor f => C.Color -> (BitBoard -> f BitBoard) -> Board -> f Board
+-- | the BitBoard Lens corresponding to the given `colour`
+piecesByColour 
+   :: C.Color              -- ^ Black / White
+   -> Lens' Board BitBoard -- ^ Lens
 piecesByColour C.Black = blackPieces
 piecesByColour C.White = whitePieces
 
 
-piecesByType :: Functor f => C.PieceType -> (BitBoard -> f BitBoard) -> Board -> f Board
+-- | the BitBoard Lens corresponding to the given PieceType
+piecesByType
+   :: C.PieceType          -- ^ Rook / Pawn etc.
+   -> Lens' Board BitBoard -- ^ Lens
 piecesByType C.Pawn   = pawns
 piecesByType C.Rook   = rooks
 piecesByType C.Knight = knights
@@ -75,7 +87,7 @@ clBToB b = flip execState emptyBoard $ do
       forM_ [ 0 .. 7 ] $ \rank -> do
          let
             mp  = C.pieceAt file rank b
-            sbb = setBB $ rank * 8 + file
+            sbb = bit $ rank * 8 + file
          case mp of
             Just p  -> do
                piecesByColour (C.clr p)   <>= sbb

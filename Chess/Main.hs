@@ -4,6 +4,7 @@ import Data.Maybe
 import Chess.Board
 import Chess.Move
 import Data.BitBoard
+import qualified Chess as C
 
 main :: IO ()
 main = do
@@ -11,6 +12,8 @@ main = do
    putStrLn "board:"
    print b
    putStrLn "white pawns"
-   print $ (view whitePieces b) `andBB` (view pawns b)
+   print $ (b^.whitePieces) .&. (b^.pawns)
    putStrLn "moves"
    print $ moves b
+
+   print $ (makeMagic C.Bishop)^.magics

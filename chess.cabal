@@ -28,5 +28,9 @@ executable chess
                        ghc-prim,
                        chesshs         ==0.1.1,
                        lens            ==3.9.*,
-                       bits-extras     ==0.1.*
+                       bits-extras     ==0.1.*,
+                       vector          ==0.10.*,
+                       vector-th-unbox ==0.2.*,
+                       MonadRandom     ==0.1.*,
+                       monad-loops     ==0.4.*
 
