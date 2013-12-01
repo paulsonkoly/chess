@@ -3,6 +3,7 @@ import Data.Maybe
 
 import Chess.Board
 import Chess.Move
+import Chess.Magic
 import Data.BitBoard
 import qualified Chess as C
 
@@ -15,5 +16,8 @@ main = do
    print $ (b^.whitePieces) .&. (b^.pawns)
    putStrLn "moves"
    print $ moves b
-
-   print $ (makeMagic C.Bishop)^.magics
+   let bmagic = makeMagic C.Bishop
+   putStrLn "squares attacked by c1 Bishop"
+   prettyPrint $ magic bmagic 2 $ (b^.whitePieces) .|. (b^.blackPieces) 
+   putStrLn "squares attacked by f1 Bishop"
+   prettyPrint $ magic bmagic 5 $ (b^.whitePieces) .|. (b^.blackPieces) 
