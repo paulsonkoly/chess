@@ -169,12 +169,12 @@ preSetup pt pos = do
      occ  = V.generate size $ ripple mask
      ref  = V.map (slidingAttackBB pt pos) occ
  
-  masks  %= V.modify (\v -> V.write v pos mask)
-  shifts %= V.modify (\v -> V.write v pos $ 64 - shft)
+  masks  %= flip V.unsafeUpd [(pos, mask)]
+  shifts %= flip V.unsafeUpd [(pos, 64 - shft)]
  
   base <- do
      base <- liftM (`V.unsafeIndex` pos) $ use spans
-     when (pos /= 63) $ spans %= V.modify (\v -> V.write v (pos + 1) $ base + size)
+     when (pos /= 63) $ spans %= flip V.unsafeUpd [(pos + 1, base + size)]
      return base
   
   return (ref, occ, mask, base, size)
@@ -233,13 +233,9 @@ makeMagic pt = execState (makeMagic' >> get) (initDB pt $ Just $ preMagics pt)
          -> Int         -- ^ base
          -> Int         -- ^ size
          -> m ()
-      fillData ref occ pos b s = do
-
-         dat %= V.modify (\v -> V.set (V.unsafeSlice b s v) mempty)
-
-         forM_ [ 0 .. s - 1 ] $ \i -> do
-            let
-               ref' = ref `V.unsafeIndex` i
-               occ' = occ `V.unsafeIndex` i
-            idx <- liftM (\m -> magicIndex m pos occ') get
-            dat %= V.modify (\v -> V.write v (b + idx) ref')
+      fillData ref occ pos b s = forM_ [ 0 .. s - 1 ] $ \i -> do
+         let
+            ref' = ref `V.unsafeIndex` i
+            occ' = occ `V.unsafeIndex` i
+         idx <- liftM (\m -> magicIndex m pos occ') get
+         dat %= flip V.unsafeUpd [(b + idx, ref')]
