@@ -1,13 +1,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE Rank2Types      #-}
 
-{-| Our @BitBoard@ representation of the current state of the game
+{-| "Data.BitBoard" representation of the current state of the game
   
    In search it's also used for storing /nodes/. It should support
    fast move and unmove operations. To query for instance the white
    pawns one can do
 
-   >>> (b^.whitePieces) .&. (b^.pawns)
+   > (b^.whitePieces) .&. (b^.pawns)
 
  -}
 module Chess.Board
