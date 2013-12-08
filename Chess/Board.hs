@@ -13,6 +13,7 @@
 module Chess.Board
    ( Board
    , fromFEN
+   , prettyPrint
    -- * Board lenses
    , whitePieces
    , blackPieces
@@ -26,18 +27,27 @@ module Chess.Board
    -- * Lenses by type
    , piecesByColour
    , piecesByType
+   -- * Queries
+   , pieceAt
+   , occupancy
+   , vacated
+   , myPieces
+   , opponentsPieces
+   , myPiecesOf
+   , opponentsPiecesOf
    )
    where
 
 import           Control.Monad.State
 import           Control.Lens
 import           Data.Monoid
+import           Data.Char
 import           Control.Applicative
 
 import qualified Chess     as C
 import qualified Chess.FEN as C
 
-import           Data.BitBoard
+import           Data.BitBoard hiding (prettyPrint)
 
 data Board = Board
    { _whitePieces :: BitBoard
@@ -79,6 +89,54 @@ piecesByType C.Queen  = queens
 piecesByType C.King   = kings
 
 
+-- | The piece type at the given position
+pieceAt :: Board -> Int -> Maybe C.PieceType
+pieceAt b pos
+   | b^.pawns   .&. p /= mempty = Just C.Pawn
+   | b^.knights .&. p /= mempty = Just C.Knight
+   | b^.bishops .&. p /= mempty = Just C.Bishop
+   | b^.rooks   .&. p /= mempty = Just C.Rook
+   | b^.queens  .&. p /= mempty = Just C.Queen
+   | b^.kings   .&. p /= mempty = Just C.King
+   | otherwise                  = Nothing
+   where p = bit pos
+
+
+opponent :: C.Color -> C.Color
+opponent C.White = C.Black
+opponent C.Black = C.White
+
+
+-- | the occupancy \Data.BitBoard\
+occupancy :: Board -> BitBoard
+occupancy b = b^.whitePieces .|. b^.blackPieces
+
+
+-- | the empty squares \Data.BitBoard\
+vacated :: Board -> BitBoard
+vacated = complement . occupancy
+
+
+-- | my pieces
+myPieces :: Board -> BitBoard
+myPieces b = b^.piecesByColour (b^.next)
+
+
+-- | opponents pieces
+opponentsPieces :: Board -> BitBoard
+opponentsPieces b = b^.piecesByColour (opponent $ b^.next)
+
+
+-- | my pieces of specific type
+myPiecesOf :: Board -> C.PieceType -> BitBoard
+myPiecesOf b pt = (b^.piecesByType pt) .&. myPieces b
+
+
+-- | opponents pieces of specific type
+opponentsPiecesOf :: Board -> C.PieceType -> BitBoard
+opponentsPiecesOf b pt = (b^.piecesByType pt) .&. opponentsPieces b
+
+
 -- | the chesshs library representation to our BitBoard representation
 clBToB :: C.Board -> Board
 clBToB b = flip execState emptyBoard $ do
@@ -98,5 +156,27 @@ clBToB b = flip execState emptyBoard $ do
 -- | reads a Board position from a FEN string
 fromFEN :: String -> Maybe Board
 fromFEN s = clBToB <$> C.fromFEN s
+
+
+prettyPrint :: Board -> IO ()
+prettyPrint b = do
+   putStrLn $ take 17 $ cycle ",-"
+   forM_ [ 7, 6 .. 0 ] $ \rank -> do
+      forM_ [ 0 .. 7 ] $ \file -> do
+         putChar '|'
+         putChar $ paint file rank $ case pieceAt b (rank * 8 + file) of
+            Just C.Pawn   -> 'p'
+            Just C.Knight -> 'k'
+            Just C.Bishop -> 'b'
+            Just C.Rook   -> 'r'
+            Just C.Queen  -> 'q'
+            Just C.King   -> 'k'
+            Nothing       -> ' '
+      putStrLn $ "| " ++ (show $ 7 + rank * 8 )
+   putStrLn $ take 17 $ cycle "'-"
+   where
+      paint file rank = if b^.blackPieces .&. bit (rank * 8 + file) /= mempty
+         then toUpper
+         else id
 
 
