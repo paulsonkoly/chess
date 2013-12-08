@@ -145,6 +145,21 @@ magicIndex m pos occ =
 {-# INLINE magicIndex #-}
 
 
+magicIndex'
+   :: Magic    -- ^ magic
+   -> Int      -- ^ position
+   -> BitBoard -- ^ occupancy
+   -> Int      -- ^ magic index
+magicIndex' m pos occ =
+   let
+      a = (m^.masks)  `V.unsafeIndex` pos
+      b = (m^.magics) `V.unsafeIndex` pos
+      c = (m^.shifts) `V.unsafeIndex` pos
+      d = (m^.spans)  `V.unsafeIndex` pos
+   in d + (((a .&. occ) `mul` b) `shiftR'` c)
+{-# INLINE magicIndex' #-}
+
+
 -- | the sliding attack
 magic
    :: Magic    -- ^ magic database
@@ -160,24 +175,60 @@ magicSize :: C.PieceType -> Int
 magicSize pt = sum [ 1 `shiftL` popCount (slidingMaskBB pt pos) | pos <- [0 .. 63]]
 
 
-preSetup :: MonadState Magic m => C.PieceType -> Int -> m (BBVector, BBVector, BitBoard, Int, Int)
+data PreSetupData = PreSetupData
+   { _ref  :: !BBVector
+   , _occ  :: !BBVector
+   , _mask :: !BitBoard
+   , _base :: !Int
+   , _size :: !Int
+   }
+
+
+calcMasks :: C.PieceType -> BBVector
+calcMasks pt = V.fromList $ map (slidingMaskBB pt) [ 0 .. 63 ]
+
+
+calcShifts :: BBVector -> V.Vector Int
+calcShifts = V.map (\i -> 64 - (popCount i))
+
+
+calcSpans :: V.Vector Int -> V.Vector Int
+calcSpans = (V.scanl' (+) 0) . (V.map (bit . (64 -)))
+
+
+calcDat :: C.PieceType -> Magic -> BBVector
+calcDat pt m = V.create $ do
+   v <- V.new $ magicSize pt
+   V.forM_ (V.enumFromN 0 64) $ \pos -> do
+     let
+        occ = V.fromList $ ripple $ V.unsafeIndex (m^.masks) pos
+     V.forM_ occ $ \occ' -> do
+        let
+           ref = slidingAttackBB pt pos occ'
+           idx = magicIndex' m pos occ'
+        V.unsafeWrite v idx ref
+     return ()
+   return v
+
+
+preSetup :: MonadState Magic m => C.PieceType -> Int -> m PreSetupData
 preSetup pt pos = do
-  let 
-     mask = slidingMaskBB pt pos
-     shft = popCount mask
-     size = (1::Int) `shiftL` shft
-     occ  = V.generate size $ ripple mask
-     ref  = V.map (slidingAttackBB pt pos) occ
+   let 
+      mask = slidingMaskBB pt pos
+      shft = popCount mask
+      size = bit shft
+      occ  = V.fromList $ ripple mask
+      ref  = V.map (slidingAttackBB pt pos) occ
  
-  masks  %= flip V.unsafeUpd [(pos, mask)]
-  shifts %= flip V.unsafeUpd [(pos, 64 - shft)]
+   masks  %= flip V.unsafeUpd [(pos, mask)]
+   shifts %= flip V.unsafeUpd [(pos, 64 - shft)]
  
-  base <- do
-     base <- liftM (`V.unsafeIndex` pos) $ use spans
-     when (pos /= 63) $ spans %= flip V.unsafeUpd [(pos + 1, base + size)]
-     return base
-  
-  return (ref, occ, mask, base, size)
+   base <- do
+      base <- liftM (`V.unsafeIndex` pos) $ use spans
+      when (pos /= 63) $ spans %= flip V.unsafeUpd [(pos + 1, base + size)]
+      return base
+
+   return $ PreSetupData ref occ mask base size
 
 
 generateMagic :: C.PieceType -> BBVector
@@ -185,20 +236,14 @@ generateMagic pt = evalRand (evalStateT (generateMagic' >> use magics) (initDB p
    where
       generateMagic' :: (MonadState Magic m, MonadRandom m) => m ()
       generateMagic' =
-         forM_ [ 0 .. 63 ] $ \pos -> do
-            (ref, occ, mask, base, size) <- preSetup pt pos
-            findMagic ref occ mask pos base size
+         forM_ [ 0 .. 63 ] $ \pos -> preSetup pt pos >>= findMagic pos
 
       findMagic
          :: (MonadState Magic m, MonadRandom m)
-         => BBVector    -- ^ reference vector
-         -> BBVector    -- ^ occupancies
-         -> BitBoard    -- ^ mask
-         -> Int         -- ^ position
-         -> Int         -- ^ base
-         -> Int         -- ^ size
+         => Int         -- ^ position
+         -> PreSetupData
          -> m Bool
-      findMagic ref occ mask pos b s = iterateUntil id $ do
+      findMagic pos (PreSetupData ref occ mask b s) = iterateUntil id $ do
 
          dat %= V.modify (\v -> V.set (V.unsafeSlice b s v) mempty)
 
@@ -220,22 +265,6 @@ makeMagic :: C.PieceType -> Magic
 makeMagic pt = execState (makeMagic' >> get) (initDB pt $ Just $ preMagics pt)
    where
       makeMagic' :: (MonadState Magic m) => m () 
-      makeMagic' =
-         forM_ [ 0 .. 63 ] $ \pos -> do
-            (ref, occ, _, base, size) <- preSetup pt pos
-            fillData ref occ pos base size
-
-      fillData
-         :: (MonadState Magic m)
-         => BBVector    -- ^ reference vector
-         -> BBVector    -- ^ occupancies
-         -> Int         -- ^ position
-         -> Int         -- ^ base
-         -> Int         -- ^ size
-         -> m ()
-      fillData ref occ pos b s = forM_ [ 0 .. s - 1 ] $ \i -> do
-         let
-            ref' = ref `V.unsafeIndex` i
-            occ' = occ `V.unsafeIndex` i
-         idx <- liftM (\m -> magicIndex m pos occ') get
-         dat %= flip V.unsafeUpd [(b + idx, ref')]
+      makeMagic' = do
+         (masks <.= calcMasks pt) >>= ((shifts <.=) . calcShifts) >>= ((spans .=) . calcSpans)
+         liftM (calcDat pt) get >>= (dat .=)

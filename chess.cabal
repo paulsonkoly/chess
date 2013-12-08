@@ -18,9 +18,11 @@ executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
   ghc-options:         -Wall -fwarn-tabs -O2
-                       -funbox-strict-fields -threaded -rtsopts
-                       -fspec-constr-count=24
-                       -funfolding-use-threshold=32
+                       -funbox-strict-fields
+                       -rtsopts
+                       -prof -auto-all -osuf=_p.a
+                       -ddump-splices
+                       -ddump-simpl -ddump-to-file 
 
   -- other-modules:       
   build-depends:       base            ==4.6.*,
@@ -32,5 +34,6 @@ executable chess
                        vector          ==0.10.*,
                        vector-th-unbox ==0.2.*,
                        MonadRandom     ==0.1.*,
-                       monad-loops     ==0.4.*
+                       monad-loops     ==0.4.*,
+                       containers      ==0.5.*
 

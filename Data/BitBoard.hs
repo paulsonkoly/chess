@@ -7,7 +7,7 @@
 module Data.BitBoard
    ( BitBoard
    -- * Utilities
-   , toList
+   , toSeq
    , prettyPrint
    -- * Numeric operations
    , mul
@@ -31,6 +31,7 @@ import           Data.Bits.Extras
 import           Data.Monoid
 import qualified Data.Vector.Unboxed as V
 import           Data.Vector.Unboxed.Deriving
+import           Data.Sequence
 
 import           Control.Monad
 import           Control.Monad.Random
@@ -66,11 +67,11 @@ shiftR' (BitBoard b) s = fromIntegral $ b `shiftR` s
 {-# INLINE shiftR' #-}
 
 
--- | Generates the nth bitcombination for a specified mask
-ripple :: BitBoard -> Int -> BitBoard
-ripple _ 0               = mempty
-ripple m@(BitBoard bb) n = let (BitBoard nxt) = ripple m (n - 1)
-                           in  BitBoard $ (nxt - bb) .&. bb
+-- | Generates the bitcombinations for a specified mask
+ripple :: BitBoard -> [ BitBoard ]
+ripple m@(BitBoard b) =
+   let l = iterate (\(BitBoard a) -> BitBoard $ (a - b) .&. b) m
+   in  m : takeWhile (/= m) (tail l)
 {-# INLINE ripple #-}
 
 
@@ -85,15 +86,13 @@ prettyPrint (BitBoard b) = do
       putStrLn "|"
 
 
--- | list of Indices set in a BitBoard
---
--- TODO : this should return list of squares
-toList :: BitBoard -> [ Int ]
-toList (BitBoard b) = if b == 0
-   then []
+-- | sequence of Indices set in a BitBoard
+toSeq :: BitBoard -> Seq Int
+toSeq (BitBoard b) = if b == 0
+   then empty
    else
       let bp = fromIntegral $ trailingZeros b
-      in  bp : toList (BitBoard $ b `xor` bit bp)
+      in  bp <| toSeq (BitBoard $ b `xor` bit bp)
 
 
 knightFiles :: Int -> BitBoard
