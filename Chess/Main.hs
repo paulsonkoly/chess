@@ -15,6 +15,6 @@ main = do
    let
       bmagic = makeMagic C.Bishop
       rmagic = makeMagic C.Rook
-      movelist = moves b bmagic rmagic
+      movelist = moves bmagic rmagic b
    putStrLn "moves"
    print movelist

@@ -8,6 +8,7 @@ module Data.BitBoard
    ( BitBoard
    -- * Utilities
    , toSeq
+   , toList
    , prettyPrint
    -- * Numeric operations
    , mul
@@ -15,7 +16,9 @@ module Data.BitBoard
    , ripple
    -- * Various BitBoard values
    , mempty
+   , neighbourFilesBB
    , knightAttackBB
+   , kingAttackBB
    , rankBB
    , fileBB
    , preMagics
@@ -95,22 +98,38 @@ toSeq (BitBoard b) = if b == 0
       in  bp <| toSeq (BitBoard $ b `xor` bit bp)
 
 
-knightFiles :: Int -> BitBoard
-knightFiles 0 = BitBoard 0x0606060606060606
-knightFiles 1 = BitBoard 0x0d0d0d0d0d0d0d0d
-knightFiles 2 = BitBoard 0x1b1b1b1b1b1b1b1b
-knightFiles 3 = BitBoard 0x3636363636363636
-knightFiles 4 = BitBoard 0x6c6c6c6c6c6c6c6c
-knightFiles 5 = BitBoard 0xd8d8d8d8d8d8d8d8
-knightFiles 6 = BitBoard 0xb0b0b0b0b0b0b0b0
-knightFiles 7 = BitBoard 0x6060606060606060
-knightFiles _ = undefined
+-- | list of Indices set in a BitBoard
+toList :: BitBoard -> [ Int ]
+toList (BitBoard b) = if b == 0
+   then []
+   else
+      let bp = fromIntegral $ trailingZeros b
+      in  bp : toList (BitBoard $ b `xor` bit bp)
+          
+
+
+neighbourFilesBB :: Int -> BitBoard
+neighbourFilesBB 0 = BitBoard 0x0707070707070707
+neighbourFilesBB 1 = BitBoard 0x0f0f0f0f0f0f0f0f
+neighbourFilesBB 2 = BitBoard 0x1f1f1f1f1f1f1f1f
+neighbourFilesBB 3 = BitBoard 0x3e3e3e3e3e3e3e3e
+neighbourFilesBB 4 = BitBoard 0x7c7c7c7c7c7c7c7c
+neighbourFilesBB 5 = BitBoard 0xf8f8f8f8f8f8f8f8
+neighbourFilesBB 6 = BitBoard 0xf0f0f0f0f0f0f0f0
+neighbourFilesBB 7 = BitBoard 0xe0e0e0e0e0e0e0e0
+neighbourFilesBB _ = undefined
 
 
 knightAttackBB :: Int -> BitBoard
 knightAttackBB 28  = BitBoard 44272527353856
-knightAttackBB pos = knightFiles (pos .&. 7) .&. shift (knightAttackBB 28) (pos - 28)
+knightAttackBB pos = neighbourFilesBB (pos .&. 7) .&. shift (knightAttackBB 28) (pos - 28)
 {-# INLINE knightAttackBB #-}
+
+
+kingAttackBB :: Int -> BitBoard
+kingAttackBB 28  = BitBoard 241192927232
+kingAttackBB pos = neighbourFilesBB (pos .&. 7) .&. shift (kingAttackBB 28) (pos - 28)
+{-# INLINE kingAttackBB #-}
 
 
 -- | BitBoard with the specified rank (any square of the Rank) set
