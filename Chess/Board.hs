@@ -24,6 +24,7 @@ module Chess.Board
    , kings
    , pawns
    , next
+   , enPassant
    -- * Lenses by type
    , piecesByColour
    , piecesByType
@@ -33,6 +34,7 @@ module Chess.Board
    , vacated
    , myPieces
    , opponentsPieces
+   , piecesOf
    , myPiecesOf
    , opponentsPiecesOf
    )
@@ -59,6 +61,7 @@ data Board = Board
    , _kings       :: BitBoard
    , _pawns       :: BitBoard
    , _next        :: C.Color
+   , _enPassant   :: [ Maybe Int ]
    } deriving Show
 
 
@@ -66,7 +69,7 @@ $(makeLenses ''Board)
 
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White []
 
 
 -- | the BitBoard Lens corresponding to the given `colour`
@@ -127,14 +130,17 @@ opponentsPieces :: Board -> BitBoard
 opponentsPieces b = b^.piecesByColour (opponent $ b^.next)
 
 
--- | my pieces of specific type
+-- | pieces of a player of a specific type
+piecesOf :: Board -> C.Color -> C.PieceType -> BitBoard
+piecesOf b colour pt = (b^.piecesByType pt) .&. (b^.piecesByColour colour)
+
+
 myPiecesOf :: Board -> C.PieceType -> BitBoard
-myPiecesOf b pt = (b^.piecesByType pt) .&. myPieces b
+myPiecesOf b = piecesOf b (b^.next)
 
 
--- | opponents pieces of specific type
 opponentsPiecesOf :: Board -> C.PieceType -> BitBoard
-opponentsPiecesOf b pt = (b^.piecesByType pt) .&. opponentsPieces b
+opponentsPiecesOf b = piecesOf b (opponent $ b^.next)
 
 
 -- | the chesshs library representation to our BitBoard representation
@@ -160,6 +166,7 @@ fromFEN s = clBToB <$> C.fromFEN s
 
 prettyPrint :: Board -> IO ()
 prettyPrint b = do
+   putStrLn $ "en Passant " ++ show (b^.enPassant)
    putStrLn $ take 17 $ cycle ",-"
    forM_ [ 7, 6 .. 0 ] $ \rank -> do
       forM_ [ 0 .. 7 ] $ \file -> do
@@ -172,7 +179,7 @@ prettyPrint b = do
             Just C.Queen  -> 'q'
             Just C.King   -> 'k'
             Nothing       -> ' '
-      putStrLn $ "| " ++ (show $ 7 + rank * 8 )
+      putStrLn $ "| " ++ show (7 + rank * 8 )
    putStrLn $ take 17 $ cycle "'-"
    where
       paint file rank = if b^.blackPieces .&. bit (rank * 8 + file) /= mempty
