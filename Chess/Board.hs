@@ -52,16 +52,16 @@ import qualified Chess.FEN as C
 import           Data.BitBoard hiding (prettyPrint)
 
 data Board = Board
-   { _whitePieces :: BitBoard
-   , _blackPieces :: BitBoard
-   , _rooks       :: BitBoard
-   , _knights     :: BitBoard
-   , _bishops     :: BitBoard
-   , _queens      :: BitBoard
-   , _kings       :: BitBoard
-   , _pawns       :: BitBoard
-   , _next        :: C.Color
-   , _enPassant   :: [ Maybe Int ]
+   { _whitePieces :: ! BitBoard
+   , _blackPieces :: ! BitBoard
+   , _rooks       :: ! BitBoard
+   , _knights     :: ! BitBoard
+   , _bishops     :: ! BitBoard
+   , _queens      :: ! BitBoard
+   , _kings       :: ! BitBoard
+   , _pawns       :: ! BitBoard
+   , _next        :: ! C.Color
+   , _enPassant   :: ! [ Maybe Int ]
    } deriving Show
 
 
