@@ -4,6 +4,7 @@ import           Control.Monad
 import qualified Control.Monad.State as S
 
 import           Data.Maybe
+import qualified Data.Foldable as F
 
 import           Test.HUnit
 
@@ -23,8 +24,8 @@ perft bishopMagics rookMagics d = S.evalState (perft' d)
                             doMoveM m
                             result <- perft' (d' - 1)
                             undoMoveM m
-                            return result
-                      ms <- liftM (moves bishopMagics rookMagics) S.get
+                            return result                            
+                      ms <- liftM (F.toList . moves bishopMagics rookMagics) S.get
                       liftM sum $ mapM step ms
 
 initialBoard :: Board
