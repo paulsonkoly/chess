@@ -14,7 +14,6 @@ import           Chess.Move
 import           Chess.Board
 import           Chess.Magic
 
-
 perft :: Magic -> Magic -> Int -> Board -> Integer
 perft bishopMagics rookMagics d = S.evalState (perft' d)
   where perft' d' = do
@@ -38,10 +37,10 @@ initialPerftResult :: Int -> Integer
 initialPerftResult 1  = 20
 initialPerftResult 2  = 400
 initialPerftResult 3  = 8902
-initialPerftResult 4  = 1972810
-initialPerftResult 5  = 48656091
-initialPerftResult 6  = 1190603242
-initialPerftResult 7  = 31959018603
+initialPerftResult 4  = 197281
+initialPerftResult 5  = 4865609
+initialPerftResult 6  = 119060324
+initialPerftResult 7  = 3195901860
 initialPerftResult 8  = 84998978956
 initialPerftResult 9  = 2439530234167
 initialPerftResult 10 = 69352859712417
