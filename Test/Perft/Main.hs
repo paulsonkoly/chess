@@ -17,16 +17,17 @@ import           Chess.Magic
 
 perft :: Magic -> Magic -> Int -> Board -> Integer
 perft bishopMagics rookMagics d = S.evalState (perft' d)
-  where perft' d' = if d' == 0
-                    then return 1
-                    else do
-                      let step m = do
-                            doMoveM m
-                            result <- perft' (d' - 1)
-                            undoMoveM m
-                            return result                            
-                      ms <- liftM (F.toList . moves bishopMagics rookMagics) S.get
-                      liftM sum $ mapM step ms
+  where perft' d' = do
+          ms <- liftM (F.toList . moves bishopMagics rookMagics) S.get
+          if d' == 1
+            then return $ fromIntegral $ length ms
+            else
+            do let step m = do
+                     doMoveM m
+                     result <- perft' (d' - 1)
+                     undoMoveM m
+                     return result                            
+               liftM sum $ mapM step ms
 
 initialBoard :: Board
 initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -34,7 +35,6 @@ initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w
 
 -- from http://chessprogramming.wikispaces.com/Perft+Results
 initialPerftResult :: Int -> Integer
-initialPerftResult 0  = 1
 initialPerftResult 1  = 20
 initialPerftResult 2  = 400
 initialPerftResult 3  = 8902
@@ -48,13 +48,14 @@ initialPerftResult 10 = 69352859712417
 initialPerftResult 11 = 2097651003696806
 initialPerftResult 12 = 62854969236701747
 initialPerftResult 13 = 1981066775000396239
+initialPerftResult _  = undefined
 
 testInitialPos :: Magic -> Magic -> Int -> Test
 testInitialPos bishopMagics rookMagics n = perft bishopMagics rookMagics n initialBoard ~?= initialPerftResult n
 
 initialTests :: Magic -> Magic -> Test
 initialTests bishopMagics rookMagics =
-  TestList [ TestLabel ("Perft " ++ show n) $ testInitialPos bishopMagics rookMagics n | n <- [0 .. 13] ]
+  TestList [ TestLabel ("Perft " ++ show n) $ testInitialPos bishopMagics rookMagics n | n <- [1 .. 13] ]
 
 main :: IO ()
 main = do
