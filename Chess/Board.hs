@@ -12,8 +12,10 @@
  -}
 module Chess.Board
    ( Board
+   , Castle(..)
    , fromFEN
    , prettyPrint
+   , opponent'
    -- * Board lenses
    , whitePieces
    , blackPieces
@@ -24,10 +26,14 @@ module Chess.Board
    , kings
    , pawns
    , next
+   , opponent
    , enPassant
+   , whiteCastleRights
+   , blackCastleRights
    -- * Lenses by type
    , piecesByColour
    , piecesByType
+   , castleRightsByColour
    -- * Queries
    , pieceAt
    , occupancy
@@ -50,18 +56,25 @@ import qualified Chess     as C
 import qualified Chess.FEN as C
 
 import           Data.BitBoard hiding (prettyPrint)
+import           Control.Extras
+
+
+data Castle = Long | Short deriving (Show, Eq)
+
 
 data Board = Board
-   { _whitePieces :: ! BitBoard
-   , _blackPieces :: ! BitBoard
-   , _rooks       :: ! BitBoard
-   , _knights     :: ! BitBoard
-   , _bishops     :: ! BitBoard
-   , _queens      :: ! BitBoard
-   , _kings       :: ! BitBoard
-   , _pawns       :: ! BitBoard
-   , _next        :: ! C.Color
-   , _enPassant   :: ! [ Maybe Int ]
+   { _whitePieces       :: ! BitBoard
+   , _blackPieces       :: ! BitBoard
+   , _rooks             :: ! BitBoard
+   , _knights           :: ! BitBoard
+   , _bishops           :: ! BitBoard
+   , _queens            :: ! BitBoard
+   , _kings             :: ! BitBoard
+   , _pawns             :: ! BitBoard
+   , _next              :: ! C.Color
+   , _enPassant         :: ! [ Maybe Int ]
+   , _whiteCastleRights :: ! [ [ Castle ] ]
+   , _blackCastleRights :: ! [ [ Castle ] ]
    } deriving Show
 
 
@@ -69,7 +82,19 @@ $(makeLenses ''Board)
 
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White []
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [] [[ Long, Short]] [[ Long, Short ]]
+
+
+-- | black for white, white for black
+opponent' :: C.Color -> C.Color
+opponent' C.White = C.Black
+opponent' C.Black = C.White
+{-# INLINE opponent' #-}
+
+
+-- | opposite colour of the next lens
+opponent :: Lens' Board C.Color
+opponent = lens (opponent' . (^.next)) (\s b -> (next.~ opponent' b) s)
 
 
 -- | the BitBoard Lens corresponding to the given `colour`
@@ -92,6 +117,14 @@ piecesByType C.Queen  = queens
 piecesByType C.King   = kings
 
 
+-- | Castle rights lens corresponding to the given colour
+castleRightsByColour
+  :: C.Color
+  -> Lens' Board [[ Castle ]]
+castleRightsByColour C.White = whiteCastleRights
+castleRightsByColour C.Black = blackCastleRights
+
+
 -- | The piece type at the given position
 pieceAt :: Board -> Int -> Maybe C.PieceType
 pieceAt b pos
@@ -103,11 +136,6 @@ pieceAt b pos
    | b^.kings   .&. p /= mempty = Just C.King
    | otherwise                  = Nothing
    where p = bit pos
-
-
-opponent :: C.Color -> C.Color
-opponent C.White = C.Black
-opponent C.Black = C.White
 
 
 -- | the occupancy \Data.BitBoard\
@@ -127,7 +155,7 @@ myPieces b = b^.piecesByColour (b^.next)
 
 -- | opponents pieces
 opponentsPieces :: Board -> BitBoard
-opponentsPieces b = b^.piecesByColour (opponent $ b^.next)
+opponentsPieces b = b^.piecesByColour (b^.opponent)
 
 
 -- | pieces of a player of a specific type
@@ -140,23 +168,30 @@ myPiecesOf b = piecesOf b (b^.next)
 
 
 opponentsPiecesOf :: Board -> C.PieceType -> BitBoard
-opponentsPiecesOf b = piecesOf b (opponent $ b^.next)
+opponentsPiecesOf b = piecesOf b (b^.opponent)
 
 
 -- | the chesshs library representation to our BitBoard representation
 clBToB :: C.Board -> Board
 clBToB b = flip execState emptyBoard $ do
    assign next $ C.turn b
+   doOnJust (C.enpassant b) $ \ep -> enPassant .= [ Just (transEP (ep^._2) * 8 + (ep^._1)) ]
+   whiteCastleRights .= [ concatMap transCR $ filter isUpper (C.castlingAvail b) ]
+   blackCastleRights .= [ concatMap (transCR . toUpper) $ filter isLower (C.castlingAvail b) ]
    forM_ [ 0 .. 7 ] $ \file ->
       forM_ [ 0 .. 7 ] $ \rank -> do
          let
             mp  = C.pieceAt file rank b
             sbb = bit $ rank * 8 + file
-         case mp of
-            Just p  -> do
-               piecesByColour (C.clr p)   <>= sbb
-               piecesByType   (C.piece p) <>= sbb
-            Nothing -> return ()
+         doOnJust mp $ \p -> do
+           piecesByColour (C.clr p)   <>= sbb
+           piecesByType   (C.piece p) <>= sbb
+  where transEP 2 = 3
+        transEP 5 = 4
+        transEP n = error $ "Unexpected rank when translating en passant : " ++ show n
+        transCR 'K' = [ Short ]
+        transCR 'Q' = [ Long ]
+        transCR _   = []
 
 
 -- | reads a Board position from a FEN string
@@ -166,7 +201,9 @@ fromFEN s = clBToB <$> C.fromFEN s
 
 prettyPrint :: Board -> IO ()
 prettyPrint b = do
-   putStrLn $ "en Passant " ++ show (b^.enPassant)
+   putStrLn $ "en Passant "  ++ show (b^.enPassant)
+     ++ " white castling : " ++ show (b^.whiteCastleRights)
+     ++ " black castling : " ++ show (b^.blackCastleRights)
    putStrLn $ take 17 $ cycle ",-"
    forM_ [ 7, 6 .. 0 ] $ \rank -> do
       forM_ [ 0 .. 7 ] $ \file -> do
@@ -185,5 +222,3 @@ prettyPrint b = do
       paint file rank = if b^.blackPieces .&. bit (rank * 8 + file) /= mempty
          then toUpper
          else id
-
-

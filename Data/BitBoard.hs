@@ -9,6 +9,7 @@ module Data.BitBoard
    -- * Utilities
    , toSeq
    , toList
+   , fromPositionList
    , prettyPrint
    -- * Numeric operations
    , mul
@@ -105,7 +106,11 @@ toList (BitBoard b) = if b == 0
    else
       let bp = fromIntegral $ trailingZeros b
       in  bp : toList (BitBoard $ b `xor` bit bp)
-          
+
+
+fromPositionList :: [Int] -> BitBoard
+fromPositionList = foldr1 (<>) . map bit
+{-# INLINE fromPositionList #-}          
 
 
 neighbourFilesBB :: Int -> BitBoard
