@@ -177,9 +177,12 @@ pawnCaptures :: Board -> Seq (Int, Int)
 pawnCaptures b = do
   let myPawns = myPiecesOf b C.Pawn
       -- files from which we can left/right capture
-      cFiles cap = complement $ fileBB $ 3 - (8 - cap) * direction (b^.next) 4 
+      cFiles 7 C.White = complement $ fileBB 0
+      cFiles 9 C.White = complement $ fileBB 7
+      cFiles 7 C.Black = complement $ fileBB 7
+      cFiles 9 C.Black = complement $ fileBB 0      
   capture <- singleton 7 |> 9  -- left and right capture
-  target  <- toSeq $ opponentsPieces b .&. ((myPawns .&. cFiles capture) `shift` direction (b^.next) capture)
+  target  <- toSeq $ opponentsPieces b .&. ((myPawns .&. cFiles capture (b^.next)) `shift` direction (b^.next) capture)
   return (target - direction (b^.next) capture, target)
 
 
