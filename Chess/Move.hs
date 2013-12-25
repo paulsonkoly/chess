@@ -154,10 +154,9 @@ moves bishopMagics rookMagics b = S.filter (not . check)
                                   $ pawnMoves b
                                   >< regularMoves b bishopMagics rookMagics
                                   >< castleMoves b bishopMagics rookMagics
-  where check m = let bb   = fromBB m `xor` toBB m
-                      b'   = putPiece bb (b^.next) (m^.piece) b
-                      myKP = head $ toList $ myPiecesOf b' C.King
-                  in isAttacked b' bishopMagics rookMagics (b^.opponent) myKP
+  where check m = let b'   = execState (doMoveM m) b
+                      myKP = head $ toList $ opponentsPiecesOf b' C.King
+                  in isAttacked b' bishopMagics rookMagics (b'^.next) myKP
 
 
 
