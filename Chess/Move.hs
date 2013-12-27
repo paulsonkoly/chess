@@ -2,9 +2,25 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Chess.Move
-   ( doMoveM
-   , undoMoveM
+   ( Move
+   -- * Constructor
    , moves
+   -- * Lenses
+   , from
+   , to
+   , piece
+   , promotion
+   , capturedPiece
+   , enPassantTarget
+   , castle
+   -- * Stateful do move
+   , doMoveM
+   , undoMoveM
+   -- * Parser
+   , parserMove
+   -- * utils
+   , direction
+   , checkMate
    )
    where
 
@@ -14,16 +30,19 @@ import           Control.Monad.State
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Sequence 
-import qualified Data.Sequence as S (filter)
+import qualified Data.Sequence as S (filter, null)
 import           Data.List
 import           Data.Functor
 import qualified Data.Foldable as F
+
+import           Text.ParserCombinators.Parsec
 
 import qualified Chess as C
 
 import           Chess.Board
 import           Chess.Magic
 import           Data.BitBoard
+import           Data.Square
 import           Control.Extras
 
 data Move = Move
@@ -148,16 +167,20 @@ undoMoveM m = do
   castleRightsByColour nxt %= tail
 
 
--- | Sequence of legal moves
-moves :: Magic -> Magic -> Board -> Seq Move
-moves bishopMagics rookMagics b = S.filter (not . check)
-                                  $ pawnMoves b
-                                  >< regularMoves b bishopMagics rookMagics
-                                  >< castleMoves b bishopMagics rookMagics
-  where check m = let b'   = execState (doMoveM m) b
-                      myKP = head $ toList $ opponentsPiecesOf b' C.King
-                  in isAttacked b' bishopMagics rookMagics (b'^.next) myKP
+check :: Board -> C.Color -> Bool
+check b c = let kP = head $ toList $ piecesOf b c C.King
+            in isAttacked b (opponent' c) kP
 
+
+-- | Sequence of legal moves
+moves :: Board -> Seq Move
+moves b = S.filter (not . check') $ pawnMoves b >< regularMoves b >< castleMoves b
+  where check' m = let b' = execState (doMoveM m) b
+                   in check b' (b^.next)
+
+
+checkMate :: Board -> Bool
+checkMate b = check b (b^.next) && S.null (moves b)
 
 
 pawnMoves :: Board -> Seq Move
@@ -207,28 +230,33 @@ pawnEnPassant b = flip (maybe empty) (join $ listToMaybe $ b^.enPassant) $ \squa
       $ defaultMove pawn (square + direction (b^.next) 8) C.Pawn
 
 
-castleMoves :: Board -> Magic -> Magic -> Seq Move
-castleMoves b bishopMagics rookMagics = do
+castleMoves :: Board -> Seq Move
+castleMoves b = do
   side <- fromList $ head $ b^.castleRightsByColour (b^.next)
   let (f, t)    = kingCastleMove (b^.next) side
       checkSqrs = toSeq $ checkCastleBB (b^.next) side
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
-  guard $ not $ F.any (isAttacked b bishopMagics rookMagics (b^.opponent)) checkSqrs
+  guard $ not $ F.any (isAttacked b (b^.opponent)) checkSqrs
   return $ (castle .~ Just side) $ defaultMove f t C.King
 
 
 -- | non pawn moves nor castles
-regularMoves :: Board -> Magic -> Magic -> Seq Move
-regularMoves b bishopMagics rookMagics = do
+regularMoves :: Board -> Seq Move
+regularMoves b = do
   pt     <- singleton C.Knight |> C.Bishop |> C.Rook |>  C.Queen |> C.King
-  move   <- attacking pt b bishopMagics rookMagics (b^.next)
+  move   <- attacking pt b (b^.next)
   target <- toSeq $ move^._2
   return $ (capturedPiece .~ pieceAt b target) $ defaultMove (move^._1) target pt
+
+bishopMagics :: Magic
+bishopMagics = makeMagic C.Bishop
+rookMagics :: Magic
+rookMagics   = makeMagic C.Rook
   
   
 -- | the bitboard & the piece position that the given piece type attacks with the given colour
-attacking :: C.PieceType -> Board -> Magic -> Magic -> C.Color -> Seq (Int, BitBoard)
-attacking pt b bishopMagics rookMagics colour =
+attacking :: C.PieceType -> Board -> C.Color -> Seq (Int, BitBoard)
+attacking pt b colour =
   let pcs     = toSeq $ piecesOf b colour pt
       notme   = complement $ b^.piecesByColour colour
       att pos = (pos, notme .&. m pos)
@@ -245,29 +273,54 @@ attacking pt b bishopMagics rookMagics colour =
 
 
 -- | the bitboard from where the piece type of the given colour is attacking the specified position
-attackedBy :: C.PieceType -> Board -> Magic -> Magic -> C.Color -> Int -> BitBoard
-attackedBy C.Queen b bishopMagics rookMagics colour pos
+attackedBy :: C.PieceType -> Board -> C.Color -> Int -> BitBoard
+attackedBy C.Queen b colour pos
   = (magic bishopMagics pos (occupancy b) .|. magic rookMagics pos (occupancy b)) .&. piecesOf b colour C.Queen
 
-attackedBy C.Bishop b bishopMagics _ colour pos
+attackedBy C.Bishop b colour pos
   = magic bishopMagics pos (occupancy b) .&. piecesOf b colour C.Bishop
 
-attackedBy C.Rook b _ rookMagics colour pos
+attackedBy C.Rook b colour pos
   = magic rookMagics pos (occupancy b) .&. piecesOf b colour C.Rook
 
-attackedBy C.Knight b _ _ colour pos = knightAttackBB pos .&. piecesOf b colour C.Knight
+attackedBy C.Knight b colour pos = knightAttackBB pos .&. piecesOf b colour C.Knight
 
-attackedBy C.King b _ _ colour pos   = kingAttackBB pos  .&. piecesOf b colour C.King
+attackedBy C.King b colour pos   = kingAttackBB pos  .&. piecesOf b colour C.King
 -- TODO : en passant
-attackedBy C.Pawn b _ _ colour pos   = let mask  = neighbourFilesBB (pos .&. 7) .&. piecesOf b colour C.Pawn
-                                       in (bit (pos - direction colour 7) .|. bit (pos - direction colour 9)) .&. mask
+attackedBy C.Pawn b colour pos   = let mask  = neighbourFilesBB (pos .&. 7) .&. piecesOf b colour C.Pawn
+                                   in (bit (pos - direction colour 7) .|. bit (pos - direction colour 9)) .&. mask
 
 
 -- | are any of the given player's pieces attacking the given square?
 -- isAttacked :: Board -> C.Color -> Int -> Bool
-isAttacked :: Board -> Magic -> Magic -> C.Color -> Int -> Bool
-isAttacked b bishopMagics rookMagics colour pos = any (/= mempty)
-                          [ attackedBy pt b bishopMagics rookMagics colour pos
+isAttacked :: Board -> C.Color -> Int -> Bool
+isAttacked b colour pos = any (/= mempty)
+                          [ attackedBy pt b colour pos
                           | pt <- [ C.Queen, C.Bishop, C.Rook, C.Knight, C.King, C.Pawn ]
                           ]
 
+
+-- | On a given board parses an UCI protocol style move notation into Move
+parserMove :: Board -> Parser Move
+parserMove b = do
+  f <- parserSquare
+  t <- parserSquare
+  promotionCh <- optionMaybe $ oneOf "qrbn"
+  let promo = charToPt <$> promotionCh
+      enp   = if Just C.Pawn == pieceAt b f && isNothing (pieceAt b t) && abs (f - t) .&. 7 /= 0
+              then head $ b^.enPassant
+              else Nothing
+      cstl  = if Just C.King == pieceAt b f && abs (f - t) == 2
+              then Just $ if f - t == 2 then Long else Short
+              else Nothing
+  return
+    $ (promotion .~ promo)
+    $ (capturedPiece .~ pieceAt b t)
+    $ (enPassantTarget .~ enp)
+    $ (castle .~ cstl)
+    $ defaultMove f t (fromJust $ pieceAt b f)
+  where
+    charToPt 'q' = C.Queen
+    charToPt 'r' = C.Rook
+    charToPt 'b' = C.Bishop
+    charToPt 'n' = C.Knight

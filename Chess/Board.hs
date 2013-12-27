@@ -13,7 +13,10 @@
 module Chess.Board
    ( Board
    , Castle(..)
+   -- * Constructors
    , fromFEN
+   , initialBoard
+   -- * Utilities
    , prettyPrint
    , opponent'
    -- * Board lenses
@@ -43,6 +46,7 @@ module Chess.Board
    , piecesOf
    , myPiecesOf
    , opponentsPiecesOf
+   , numberOf
    )
    where
 
@@ -50,6 +54,7 @@ import           Control.Monad.State
 import           Control.Lens
 import           Data.Monoid
 import           Data.Char
+import           Data.Maybe
 import           Control.Applicative
 
 import qualified Chess     as C
@@ -83,6 +88,10 @@ $(makeLenses ''Board)
 
 emptyBoard :: Board
 emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [] [[ Long, Short]] [[ Long, Short ]]
+
+
+initialBoard :: Board
+initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
 -- | black for white, white for black
@@ -169,6 +178,10 @@ myPiecesOf b = piecesOf b (b^.next)
 
 opponentsPiecesOf :: Board -> C.PieceType -> BitBoard
 opponentsPiecesOf b = piecesOf b (b^.opponent)
+
+
+numberOf :: Board -> C.Color -> C.PieceType -> Int
+numberOf b c = popCount . piecesOf b c 
 
 
 -- | the chesshs library representation to our BitBoard representation

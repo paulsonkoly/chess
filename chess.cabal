@@ -18,27 +18,35 @@ executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
   ghc-options:         -Wall -fwarn-tabs -O2
+                       -fno-warn-incomplete-patterns
                        -funbox-strict-fields
                        -rtsopts
                        -prof -auto-all -osuf=_p.a
-                       -ddump-splices
                        -ddump-simpl -ddump-to-file
   -- other-modules:       
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
                        chesshs         ==0.1.1,
+                       game-tree       ==0.1.*,
                        lens            ==3.9.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
                        vector-th-unbox ==0.2.*,
                        MonadRandom     ==0.1.*,
                        monad-loops     ==0.4.*,
-                       containers      ==0.5.*
+                       containers      ==0.5.*,
+                       parsec          ==3.1.*
 
 executable perft
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
+  ghc-options:         -Wall -fwarn-tabs -O2
+                       -fno-warn-incomplete-patterns
+                       -funbox-strict-fields
+                       -rtsopts
+                       -prof -auto-all -osuf=_p.a
+                       -ddump-simpl -ddump-to-file
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
@@ -50,5 +58,6 @@ executable perft
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.*
+                       vector-th-unbox ==0.2.*,
+                       parsec          ==3.1.*
 

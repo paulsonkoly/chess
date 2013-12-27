@@ -8,16 +8,14 @@ import qualified Data.Foldable as F
 
 import           Test.HUnit
 
-import qualified Chess as C
-
 import           Chess.Move
 import           Chess.Board
-import           Chess.Magic
 
-perft :: Magic -> Magic -> Int -> Board -> Integer
-perft bishopMagics rookMagics d = S.evalState (perft' d)
+
+perft :: Int -> Board -> Integer
+perft d = S.evalState (perft' d)
   where perft' d' = do
-          ms <- liftM (F.toList . moves bishopMagics rookMagics) S.get
+          ms <- liftM (F.toList . moves) S.get
           if d' == 1
             then return $ fromIntegral $ length ms
             else
@@ -27,9 +25,6 @@ perft bishopMagics rookMagics d = S.evalState (perft' d)
                      undoMoveM m
                      return result                            
                liftM sum $ mapM step ms
-
-initialBoard :: Board
-initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
 -- from http://chessprogramming.wikispaces.com/Perft+Results
@@ -49,16 +44,40 @@ initialPerftResult 12 = 62854969236701747
 initialPerftResult 13 = 1981066775000396239
 initialPerftResult _  = undefined
 
-testInitialPos :: Magic -> Magic -> Int -> Test
-testInitialPos bishopMagics rookMagics n = perft bishopMagics rookMagics n initialBoard ~?= initialPerftResult n
+testInitialPos :: Int -> Test
+testInitialPos n = perft n initialBoard ~?= initialPerftResult n
 
-initialTests :: Magic -> Magic -> Test
-initialTests bishopMagics rookMagics =
-  TestList [ TestLabel ("Perft " ++ show n) $ testInitialPos bishopMagics rookMagics n | n <- [1 .. 13] ]
+initialTests :: Test
+initialTests  =
+  TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n | n <- [1 .. 5] ]
+
+
+ruyLopezPosition :: Board
+ruyLopezPosition = fromJust $ fromFEN "r1bqkbnr/1pp2ppp/p1p5/4N3/4P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 5"
+
+
+ruyLopezPerftResult :: Int -> Integer
+ruyLopezPerftResult 1 =           36
+ruyLopezPerftResult 2 =         1147
+ruyLopezPerftResult 3 =        41558
+ruyLopezPerftResult 4 =      1322527
+ruyLopezPerftResult 5 =     48184273
+ruyLopezPerftResult 6 =   1552389766
+
+testRuyLopez :: Int -> Test
+testRuyLopez n = perft n ruyLopezPosition ~?= ruyLopezPerftResult n
+
+
+ruyLopezTests :: Test
+ruyLopezTests =
+  TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n | n <- [1 .. 6] ]
+
+
+allTests :: Test
+allTests = TestList [initialTests, ruyLopezTests]
+  
 
 main :: IO ()
 main = do
-  let bishopMagics = makeMagic C.Bishop
-      rookMagics   = makeMagic C.Rook
-  _ <- runTestTT $ initialTests bishopMagics rookMagics
+  _ <- runTestTT allTests  
   return ()
