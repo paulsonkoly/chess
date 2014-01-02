@@ -5,6 +5,7 @@ module Chess.Move
    ( Move
    -- * Constructor
    , moves
+   , forcingMoves
    -- * Lenses
    , from
    , to
@@ -21,6 +22,7 @@ module Chess.Move
    -- * utils
    , direction
    , checkMate
+   , renderShortMove
    )
    where
 
@@ -179,6 +181,11 @@ moves b = S.filter (not . check') $ pawnMoves b >< regularMoves b >< castleMoves
                    in check b' (b^.next)
 
 
+-- | Sequence of captures
+forcingMoves :: Board -> Seq Move
+forcingMoves b = S.filter (\m -> (bit $ m^.to) .&. (occupancy b) /= mempty) $ moves b
+
+
 checkMate :: Board -> Bool
 checkMate b = check b (b^.next) && S.null (moves b)
 
@@ -298,6 +305,20 @@ isAttacked b colour pos = any (/= mempty)
                           [ attackedBy pt b colour pos
                           | pt <- [ C.Queen, C.Bishop, C.Rook, C.Knight, C.King, C.Pawn ]
                           ]
+
+
+renderShortMove :: Move -> String
+renderShortMove m = maybe nonCastle renderCastle (m^.castle)
+  where
+    renderCastle Short = "O-O"
+    renderCastle Long  = "O-O-O"
+    nonCastle = showSquare (m^.from) ++ showSquare (m^.to) ++ (showPromotion $ m^.promotion)
+    showSquare sq = (['a' .. 'h'] !! (sq .&. 7)) : (show $ 1 + (sq `shiftR` 3))                                 
+    showPromotion (Just C.Queen) = "q"
+    showPromotion (Just C.Knight) = "n"
+    showPromotion (Just C.Rook) = "r"
+    showPromotion (Just C.Bishop) = "b"
+    showPromotion _ = ""
 
 
 -- | On a given board parses an UCI protocol style move notation into Move

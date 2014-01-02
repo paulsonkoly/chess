@@ -18,6 +18,8 @@ import           Chess.Move
 import           Chess.Board
 import           Chess.Magic
 import           Chess.Search
+import           Chess.TransPosCache
+import           Chess.Evaluation
 import qualified Chess as C
 
 data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
@@ -48,20 +50,7 @@ instance Show Response where
   show (RspBestMove move) = "bestmove " ++ renderShortMove move
   show (RspOption text)   = "option " ++ text
         
-        
-renderShortMove :: Move -> String
-renderShortMove m = maybe nonCastle renderCastle (m^.castle)
-  where
-    renderCastle Short = "O-O"
-    renderCastle Long  = "O-O-O"
-    nonCastle = showSquare (m^.from) ++ showSquare (m^.to) ++ (showPromotion $ m^.promotion)
-    showSquare sq = (['a' .. 'h'] !! (sq .&. 7)) : (show $ 1 + (sq `shiftR` 3))                                 
-    showPromotion (Just C.Queen) = "q"
-    showPromotion (Just C.Knight) = "n"
-    showPromotion (Just C.Rook) = "r"
-    showPromotion (Just C.Bishop) = "b"
-    showPromotion _ = ""
-    
+  
 ------------------ parsers --------------
 p_cmd_uci = do
                 string "uci"
@@ -138,7 +127,7 @@ parseCommand line = case parse p_cmd "" line of
 uci :: IO ()
 uci = do
     hSetBuffering stdout NoBuffering
-    lastPosition <- newIORef $ initialGameTree
+    lastPosition <- newIORef $ SearchState initialBoard mkTransPosCache
 
     let dialogue lastPosition = do
                 line <- getLine
@@ -156,15 +145,16 @@ uci = do
                     getResponse CmdQuit = exitSuccess
                     getResponse CmdStop = return []
                     getResponse (CmdPosition pos) = do
-                      modifyIORef lastPosition $ gameTreeFromBoard pos
+                      modifyIORef lastPosition (board .~ pos)
                       return []
                     getResponse (CmdGo _) = do
-                            position <- readIORef lastPosition
-                            prettyPrint $ position^.board
-                            let (gts, score) = alpha_beta_search position 3
-                                move = head $ getPath gts
-                            return [ RspInfo ("score " ++ show score)
-                                   , RspInfo ("currmove " ++ renderShortMove move)
-                                   , RspBestMove move
+                            p <- readIORef lastPosition
+                            prettyPrint $ p^.board
+                            print $ evaluate $ p^.board
+                            let ((pv, score), p') = runState (negaScout 3) p
+                            writeIORef lastPosition p'
+                            return [ RspInfo ("PV " ++ show score ++ " " ++ unwords (map renderShortMove pv))
+                                   , RspInfo ("currmove " ++ (renderShortMove $ head pv))
+                                   , RspBestMove $ head pv
                                    ]
     dialogue lastPosition

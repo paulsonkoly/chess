@@ -22,6 +22,8 @@ module Data.BitBoard
    , kingAttackBB
    , rankBB
    , fileBB
+   , centralSquares
+   , largeCentralSquares
    , preMagics
    , sparseRandomBB
    , module Data.Bits
@@ -147,6 +149,16 @@ rankBB p = BitBoard $ 0x00000000000000ff `shift` (p .&. 0x38)
 fileBB :: Int -> BitBoard
 fileBB p = BitBoard $ 0x0101010101010101 `shift` (p .&. 7)
 {-# INLINE fileBB #-}
+
+
+centralSquares :: BitBoard
+centralSquares = bit 27 .|. bit 28 .|. bit 35 .|. bit 36
+{-# INLINE centralSquares #-}
+
+
+largeCentralSquares :: BitBoard
+largeCentralSquares = centralSquares
+                      .|. foldr1 (.|.) [ bit i | i <- [18 .. 21] ++ [26, 29] ++ [34, 37] ++ [42 .. 45]]
 
 
 -- | Sparse random bitboard

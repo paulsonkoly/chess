@@ -19,6 +19,7 @@ module Chess.Board
    -- * Utilities
    , prettyPrint
    , opponent'
+   , hash
    -- * Board lenses
    , whitePieces
    , blackPieces
@@ -54,17 +55,18 @@ import           Control.Monad.State
 import           Control.Lens
 import           Data.Monoid
 import           Data.Char
+import           Data.Word
 import           Data.Maybe
 import           Control.Applicative
 
 import qualified Chess     as C
 import qualified Chess.FEN as C
 
+import           Chess.Zobrist
+import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
+import           Data.ChessTypes
 import           Control.Extras
-
-
-data Castle = Long | Short deriving (Show, Eq)
 
 
 data Board = Board
@@ -80,18 +82,44 @@ data Board = Board
    , _enPassant         :: ! [ Maybe Int ]
    , _whiteCastleRights :: ! [ [ Castle ] ]
    , _blackCastleRights :: ! [ [ Castle ] ]
-   } deriving Show
+   } deriving (Show)
 
 
 $(makeLenses ''Board)
 
+-- TODO remove me, history shouldn't be here
+instance Eq Board where
+  a == b = a^.whitePieces == b^.whitePieces
+           && a^.whitePieces       == b^.whitePieces       
+           && a^.blackPieces       == b^.blackPieces       
+           && a^.rooks             == b^.rooks             
+           && a^.knights           == b^.knights           
+           && a^.bishops           == b^.bishops           
+           && a^.queens            == b^.queens            
+           && a^.kings             == b^.kings             
+           && a^.pawns             == b^.pawns             
+           && a^.next              == b^.next              
+           && head (a^.enPassant)         == head (b^.enPassant)
+           && head (a^.whiteCastleRights) == head (b^.whiteCastleRights)
+           && head (a^.blackCastleRights) == head (b^.blackCastleRights)
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [] [[ Long, Short]] [[ Long, Short ]]
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [ Nothing ] [[ Long, Short]] [[ Long, Short ]]
 
 
 initialBoard :: Board
 initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+
+
+hash :: Board -> Word64
+hash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
+                    | i <- [0 .. 63]
+                    , pt <- [ pieceAt b i ], isJust pt
+                    , pc <- [ pieceColourAt b i ], isJust pc
+                    ]
+         `xor` zobrist (ZobristSide $ b^.next)
+         `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
+         `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
 
 
 -- | black for white, white for black
@@ -145,6 +173,15 @@ pieceAt b pos
    | b^.kings   .&. p /= mempty = Just C.King
    | otherwise                  = Nothing
    where p = bit pos
+
+
+-- | The piece colour at a given position
+pieceColourAt :: Board -> Square -> Maybe C.Color
+pieceColourAt b pos
+  | b^.whitePieces .&. p /= mempty = Just C.White
+  | b^.blackPieces .&. p /= mempty = Just C.Black
+  | otherwise                      = Nothing
+  where p = bit pos
 
 
 -- | the occupancy \Data.BitBoard\
@@ -232,6 +269,6 @@ prettyPrint b = do
       putStrLn $ "| " ++ show (7 + rank * 8 )
    putStrLn $ take 17 $ cycle "'-"
    where
-      paint file rank = if b^.blackPieces .&. bit (rank * 8 + file) /= mempty
+      paint file rank = if b^.whitePieces .&. bit (rank * 8 + file) /= mempty
          then toUpper
          else id

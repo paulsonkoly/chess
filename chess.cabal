@@ -28,7 +28,6 @@ executable chess
                        mtl             ==2.1.*,
                        ghc-prim,
                        chesshs         ==0.1.1,
-                       game-tree       ==0.1.*,
                        lens            ==3.9.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
@@ -36,7 +35,8 @@ executable chess
                        MonadRandom     ==0.1.*,
                        monad-loops     ==0.4.*,
                        containers      ==0.5.*,
-                       parsec          ==3.1.*
+                       parsec          ==3.1.*,
+                       lrucache        ==1.1.*
 
 executable perft
   main-is:             Test/Perft/Main.hs
