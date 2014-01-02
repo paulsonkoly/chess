@@ -34,8 +34,8 @@ import Chess.Board
 
 data TransPosCacheEntry = TPCE
                           { _board      :: Board
-                          , _evaluation :: Int
-                          , _depth      :: Int
+                          , _evaluation :: ! Int
+                          , _depth      :: ! Int
                           }
 
 
@@ -46,7 +46,7 @@ type TransPosCache = LRU Word64 TransPosCacheEntry
 
 
 mkTransPosCache :: TransPosCache
-mkTransPosCache = newLRU $ Just $ 4 * 4096
+mkTransPosCache = newLRU $ Just 8192
 
 
 -- | Just the pair of the modified LRU cache + the entry on hit
@@ -56,10 +56,12 @@ transPosCacheLookUp
   -> TransPosCache
   -> Maybe (TransPosCache, Int)
 transPosCacheLookUp b d cache = let (cache', mval) = lookup (hash b) cache
-                              in case mval of
-                                Just val ->
-                                  if b == val^.board && val^.depth >= d then Just (cache', val^.evaluation) else Nothing
-                                Nothing  -> Nothing
+                                in case mval of
+                                  Just val ->
+                                    if b == val^.board && val^.depth >= d
+                                    then Just (cache', val^.evaluation)
+                                    else Nothing
+                                  Nothing  -> Nothing
 
 
 -- | Returns a cache with the entry inserted
@@ -70,16 +72,3 @@ transPosCacheInsert
   -> TransPosCache
   -> TransPosCache
 transPosCacheInsert b d e = insert (hash b) (TPCE b e d)
-
-
--- | uses TransPosCache to memoize the evaluation at a given depth
-{-withTransPosCache
-  :: Board
-  -> Int                    -- ^ depth
-  -> TransPosCache          -- ^ cache
-  -> (Board -> Int)         -- ^ evaluation function to memoize
-  -> (TransPosCache, Int)   -- ^ modified cache + evaluation result
-withTransPosCache b d c f = case transPosCacheLookUp b d c of
-  Just (cache', entry) -> (cache', entry^.evaluation)
-  Nothing -> (insert (hash b) (TPCE b (f b) d) c, f b)
--}

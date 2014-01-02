@@ -127,7 +127,7 @@ parseCommand line = case parse p_cmd "" line of
 uci :: IO ()
 uci = do
     hSetBuffering stdout NoBuffering
-    lastPosition <- newIORef $ SearchState initialBoard mkTransPosCache
+    lastPosition <- newIORef $ SearchState initialBoard mkTransPosCache 0 0
 
     let dialogue lastPosition = do
                 line <- getLine
@@ -151,7 +151,7 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            let ((pv, score), p') = runState (negaScout 3) p
+                            let ((pv, score), p') = runState (negaScout 4) p
                             writeIORef lastPosition p'
                             return [ RspInfo ("PV " ++ show score ++ " " ++ unwords (map renderShortMove pv))
                                    , RspInfo ("currmove " ++ (renderShortMove $ head pv))
