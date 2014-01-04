@@ -1,7 +1,4 @@
 {-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE RankNTypes       #-}
-{-# LANGUAGE KindSignatures   #-}
-{-# LANGUAGE FlexibleContexts #-}
 
 module Chess.Search
        ( negaScout
@@ -9,25 +6,27 @@ module Chess.Search
        , board
        ) where
 
-import Control.Monad.State
-import Control.Lens
-import Data.Foldable
+import qualified Data.PQueue.Max as Q
 
-import Chess.Board
-import Chess.TransPosCache
-import Chess.Evaluation
-import Chess.Move
+import           Control.Monad.State
+import           Control.Lens
+
+import           Chess.Board
+import qualified Chess.TransPosCache as TPC
+import           Chess.TransPosCache (result, typ)
+import           Chess.Evaluation
+import           Chess.Move
 
 import Debug.Trace
 
 data SearchState = SearchState
                    { _board   :: Board
-                   , _tpc     :: TransPosCache
+                   , _tpc     :: TPC.TransPosCache
                    , _tpcHit  :: ! Int
                    , _tpcMiss :: ! Int
                    }
 
-type SearchResult = ( [ Move ], Int )
+type Search = State SearchState SearchResult
 
 
 $(makeLenses ''SearchState)
@@ -35,42 +34,66 @@ $(makeLenses ''SearchState)
 
 negaScout
   :: Int -- ^ depth
-  -> State SearchState SearchResult
+  -> Search
 negaScout d = do
   c <- liftM (\b -> direction (b^.next) 1) $ use board
   mulM c $ negaScout' d d (-inf) inf c
 
 
-withMove :: forall (m :: * -> *) b . MonadState SearchState m => Move -> m b -> m b
+withMove :: Move -> Search -> Search
 withMove m ac = do
   board %= execState (doMoveM m)
-  result <- ac
+  r <- ac
   board %= execState (undoMoveM m)
-  return result
+  return r
 {-# INLINE withMove #-}
 
 
-withTransPosCache :: forall (m :: * -> *) . MonadState SearchState m => Bool -> Int -> m SearchResult -> m SearchResult
-withTransPosCache cond d ac =
+renderVariation :: [ Move ] -> String
+renderVariation = unwords . map renderShortMove
+
+
+tryTransPosCache
+  :: Bool                     -- ^ condition
+  -> Int -> Int -> Int -> Int -- ^ depth / alpha / beta / colour
+  -> (Int -> Int -> Int -> Int -> Search)
+  -> Search
+tryTransPosCache cond d alpha beta c f =
   if cond
     then do
       b <- use board
       t <- use tpc
-      case transPosCacheLookUp b d t of
-        Just (cache', val) -> do
+      case TPC.transPosCacheLookUp b d t of
+        Just (cache', entry) -> do
           tpc .= cache'
           tpcHit += 1
-          return ([], val)
+          case entry^.typ of
+            TPC.Exact -> return $ entry^.result
+            TPC.Lower -> let alpha' = max alpha $ snd $ entry^.result
+                         in if alpha' >= beta
+                            then return ([], alpha')
+                            else f d alpha' beta c
+            TPC.Upper -> let beta' = min beta $ snd $ entry^.result
+                         in if alpha >= beta'
+                            then return ([], alpha)
+                            else f d alpha beta' c
         Nothing -> do
           tpcMiss += 1
-          insert
-    else insert
-  where insert = do
-          result <- ac
-          b <- use board
-          tpc %= transPosCacheInsert b d (snd result)
-          return result
-{-# INLINE withTransPosCache #-}
+          f d alpha beta c
+    else f d alpha beta c
+{-# INLINE tryTransPosCache #-}
+
+
+updateTransPosCache :: Int -> Int -> Int -> SearchResult -> Search
+updateTransPosCache d alpha beta r@(pv, score) = let t
+                                                       | score <= alpha = TPC.Lower
+                                                       | score >= beta  = TPC.Upper
+                                                       | otherwise      = TPC.Exact
+                                                 in do
+                                                   b <- use board
+                                                   tpc %= TPC.transPosCacheInsert b d t r
+                                                   return r
+{-# INLINE updateTransPosCache #-}
 
 
 hitRatio :: SearchState -> Int
@@ -79,31 +102,31 @@ hitRatio st = let s = st^.tpcHit + st^.tpcMiss
         
 
 negaScout'
-  :: Int -- ^ depth
-  -> Int -- ^ max depth
+  :: Int -- ^ max depth
+  -> Int -- ^ depth
   -> Int -- ^ alpha
   -> Int -- ^ beta
   -> Int -- ^ colour
-  -> State SearchState SearchResult
-negaScout' d mx alpha beta c = withTransPosCache (d < mx) d $ do
+  -> Search
+negaScout' mx d alpha beta c = do
   mate <- liftM checkMate $ use board
   if mate
     then liftM (\b -> ([], c * evaluate b)) $ use board
     else if d == 0
           then quiscene alpha beta c
           else do
-            ml <- liftM (\b -> zip (toList $ moves b) ([0, 1..] :: [Int])) (use board)
-            go ([], alpha) ml
+            ml <- liftM (map snd . Q.toDescList . moves) $ use board
+            go ([], alpha) $ zip ml ([0, 1..] :: [Int])
 
   where go l [] = return l
         go (pv, alpha') ((m, i) : ms) = info alpha' pv m $ do
           (pv', score) <- withMove m $ addM m $ if i > 0
                                                 then do
-                                                  (pv'', score') <- negM $ negaScout' (d - 1) mx (-alpha' - 1) (-alpha') (-c)
+                                                  (pv'', score') <- negM $ negaScout' mx (d - 1) (-alpha' - 1) (-alpha') (-c)
                                                   if alpha' < score' && score' < beta
-                                                    then negM $ negaScout' (d - 1) mx (-beta) (-alpha') (-c)
+                                                    then negM $ negaScout' mx (d - 1) (-beta) (-alpha') (-c)
                                                     else return (pv'', score')
-                                                else negM $ negaScout' (d - 1) mx (-beta) (-alpha') (-c)
+                                                else negM $ negaScout' mx (d - 1) (-beta) (-alpha') (-c)
           let (pv'', alpha'') = greater (pv', score) (pv, alpha')
           if alpha'' >= beta
             then return (pv'', alpha'')
@@ -112,19 +135,19 @@ negaScout' d mx alpha beta c = withTransPosCache (d < mx) d $ do
                          then get >>= \st -> trace ("info " ++ Prelude.replicate d '>'
                                                     ++  "TPC : " ++ show (hitRatio st) ++ "% "
                                                     ++ show a
-                                                    ++ " PV : " ++ unwords (map renderShortMove pv)
+                                                    ++ " PV : " ++ (renderVariation pv)
                                                     ++ " curr : " ++ renderShortMove m) ac
                          else ac
 
             
 
-quiscene :: Int -> Int -> Int -> State SearchState SearchResult
-quiscene alpha beta c = withTransPosCache True 0 $ do
+quiscene :: Int -> Int -> Int -> Search
+quiscene alpha beta c = do
   standPat <- liftM ((c*) . evaluate) (use board)
   if standPat >= beta
     then return ([], beta)
     else do
-       ml <- liftM (toList . forcingMoves) (use board)
+       ml <- liftM (map snd . Q.toDescList . forcingMoves) (use board)
        go ([], max alpha standPat) ml
 
   where go l [] = return l

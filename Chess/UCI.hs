@@ -18,7 +18,7 @@ import           Chess.Move
 import           Chess.Board
 import           Chess.Magic
 import           Chess.Search
-import           Chess.TransPosCache
+import qualified Chess.TransPosCache as TPC
 import           Chess.Evaluation
 import qualified Chess as C
 
@@ -127,7 +127,7 @@ parseCommand line = case parse p_cmd "" line of
 uci :: IO ()
 uci = do
     hSetBuffering stdout NoBuffering
-    lastPosition <- newIORef $ SearchState initialBoard mkTransPosCache 0 0
+    lastPosition <- newIORef $ SearchState initialBoard TPC.mkTransPosCache 0 0
 
     let dialogue lastPosition = do
                 line <- getLine
@@ -151,7 +151,7 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            let ((pv, score), p') = runState (negaScout 4) p
+                            let ((pv, score), p') = runState (negaScout 5) p
                             writeIORef lastPosition p'
                             return [ RspInfo ("PV " ++ show score ++ " " ++ unwords (map renderShortMove pv))
                                    , RspInfo ("currmove " ++ (renderShortMove $ head pv))

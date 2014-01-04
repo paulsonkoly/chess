@@ -4,7 +4,7 @@ import           Control.Monad
 import qualified Control.Monad.State as S
 
 import           Data.Maybe
-import qualified Data.Foldable as F
+import qualified Data.PQueue.Max as Q
 
 import           Test.HUnit
 
@@ -15,7 +15,7 @@ import           Chess.Board
 perft :: Int -> Board -> Integer
 perft d = S.evalState (perft' d)
   where perft' d' = do
-          ms <- liftM (F.toList . moves) S.get
+          ms <- liftM (map snd . Q.toList . moves) S.get
           if d' == 1
             then return $ fromIntegral $ length ms
             else
