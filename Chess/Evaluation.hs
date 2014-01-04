@@ -23,7 +23,7 @@ diffBB a b = popCount a - popCount b
 evaluate :: Board -> Int
 evaluate b =
   if checkMate b
-  then direction (b^.next) 3000
+  then direction (b^.next) (-3000)
   else let material = Data.Foldable.sum [ w * (numberOf b C.White pt - numberOf b C.Black pt)
                                         | (w, pt) <- weights
                                         ]
