@@ -26,7 +26,8 @@ data SearchState = SearchState
                    , _tpcMiss :: ! Int
                    }
 
-type Search = State SearchState SearchResult
+type Search  = State SearchState SearchResult
+type Iterate = (TPC.TransPosCacheEntryType, SearchResult)
 
 
 $(makeLenses ''SearchState)
@@ -84,16 +85,39 @@ tryTransPosCache cond d alpha beta c f =
 {-# INLINE tryTransPosCache #-}
 
 
-updateTransPosCache :: Int -> Int -> Int -> SearchResult -> Search
-updateTransPosCache d alpha beta r@(pv, score) = let t
-                                                       | score <= alpha = TPC.Lower
-                                                       | score >= beta  = TPC.Upper
-                                                       | otherwise      = TPC.Exact
-                                                 in do
-                                                   b <- use board
-                                                   tpc %= TPC.transPosCacheInsert b d t r
-                                                   return r
+updateTransPosCache :: Int -> Iterate -> Search
+updateTransPosCache d (t, r) = do
+  b <- use board
+  tpc %= TPC.transPosCacheInsert b d t r
+  return r
 {-# INLINE updateTransPosCache #-}
+
+
+iterateMoves
+  :: [ Move ]
+  -> Int                                    -- ^ alpha
+  -> Int                                    -- ^ beta
+  -> Bool                                   -- ^ Report
+  -> (Bool -> Move -> Int -> Int -> Search) -- ^ True is fed in in the first iteration (for negascout)
+  -> State SearchState Iterate
+iterateMoves ml alpha beta rep ac = go True (TPC.Upper, ([], alpha)) ml
+  where go _ l [] = return l
+        go f p@(_, (_, a)) (m:ms) = do
+          n@(pv, score) <-  ac f m a beta
+          let cont
+                | a     >= beta = return (TPC.Upper, ([], a))
+                | score >= beta = return (TPC.Lower, ([], beta))
+                | score > a     = info score pv m $ go False (TPC.Exact, n) ms
+                | otherwise     = go False p ms
+          cont
+        info a pv m ac' = if rep
+                          then get >>= \st -> trace ("info TPC : " ++ show (hitRatio st) ++ "% "
+                                                    ++ show a
+                                                    ++ " PV : " ++ renderVariation pv
+                                                    ++ " curr : " ++ renderShortMove m) ac'
+                          else ac'
+            
+
 
 
 hitRatio :: SearchState -> Int
@@ -108,7 +132,7 @@ negaScout'
   -> Int -- ^ beta
   -> Int -- ^ colour
   -> Search
-negaScout' mx d alpha beta c = do
+negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c' $ \d alpha beta c -> do
   mate <- liftM checkMate $ use board
   if mate
     then liftM (\b -> ([], c * evaluate b)) $ use board
@@ -116,53 +140,32 @@ negaScout' mx d alpha beta c = do
           then quiscene alpha beta c
           else do
             ml <- liftM (map snd . Q.toDescList . moves) $ use board
-            go ([], alpha) $ zip ml ([0, 1..] :: [Int])
-
-  where go l [] = return l
-        go (pv, alpha') ((m, i) : ms) = info alpha' pv m $ do
-          (pv', score) <- withMove m $ addM m $ if i > 0
-                                                then do
-                                                  (pv'', score') <- negM $ negaScout' mx (d - 1) (-alpha' - 1) (-alpha') (-c)
-                                                  if alpha' < score' && score' < beta
-                                                    then negM $ negaScout' mx (d - 1) (-beta) (-alpha') (-c)
-                                                    else return (pv'', score')
-                                                else negM $ negaScout' mx (d - 1) (-beta) (-alpha') (-c)
-          let (pv'', alpha'') = greater (pv', score) (pv, alpha')
-          if alpha'' >= beta
-            then return (pv'', alpha'')
-            else go (pv'', alpha'') ms
-        info a pv m ac = if d == mx
-                         then get >>= \st -> trace ("info " ++ Prelude.replicate d '>'
-                                                    ++  "TPC : " ++ show (hitRatio st) ++ "% "
-                                                    ++ show a
-                                                    ++ " PV : " ++ (renderVariation pv)
-                                                    ++ " curr : " ++ renderShortMove m) ac
-                         else ac
-
+            r <- iterateMoves ml alpha beta (mx == d) $ \f m a b ->
+              withMove m $ addM m $ if f
+                                    then do
+                                      n@(_, score) <- negM $ negaScout' mx (d - 1) (-a - 1) (-a) (-c)
+                                      if a < score && score < b
+                                        then negM $ negaScout' mx (d - 1) (-b) (-a) (-c)
+                                        else return n
+                                    else negM $ negaScout' mx (d - 1) (-b) (-a) (-c)
+            updateTransPosCache d r
             
 
 quiscene :: Int -> Int -> Int -> Search
-quiscene alpha beta c = do
+quiscene alpha' beta' c' = tryTransPosCache True 0 alpha' beta' c' $ \_ alpha beta c -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   if standPat >= beta
-    then return ([], beta)
+    then updateTransPosCache 0 (TPC.Lower, ([], beta))
     else do
        ml <- liftM (map snd . Q.toDescList . forcingMoves) (use board)
-       go ([], max alpha standPat) ml
-
-  where go l [] = return l
-        go (pv, alpha') (m:ms) = do
-          (pv', score) <- withMove m $ addM m $ negM $ quiscene (-beta) (-alpha') (-c)
-          if score >= beta
-            then return ([], beta)
-            else go (greater (pv', score) (pv, alpha')) ms
+       let mx = max alpha standPat
+       r  <- iterateMoves ml mx beta False $ \ _ m a b -> withMove m $ addM m $ negM $ quiscene (-b) (-a) (-c)
+       updateTransPosCache 0 r
              
-
-greater :: SearchResult -> SearchResult -> SearchResult
-greater (l1, v1) (l2, v2) = if v1 > v2 then (l1, v1) else (l2, v2)
 
 inf :: Int
 inf = maxBound
+
 
 negM   = mulM (-1)
 mulM c = liftM (_2 %~ (c*))

@@ -40,6 +40,7 @@ module Chess.Board
    , castleRightsByColour
    -- * Queries
    , pieceAt
+   , pieceColourAt
    , occupancy
    , vacated
    , myPieces
@@ -62,7 +63,6 @@ import           Control.Applicative
 import qualified Chess     as C
 import qualified Chess.FEN as C
 
-import           Chess.Zobrist
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
@@ -82,6 +82,7 @@ data Board = Board
    , _enPassant         :: ! [ Maybe Int ]
    , _whiteCastleRights :: ! [ [ Castle ] ]
    , _blackCastleRights :: ! [ [ Castle ] ]
+   , _hash              :: Word64
    } deriving (Show)
 
 
@@ -104,22 +105,11 @@ instance Eq Board where
            && head (a^.blackCastleRights) == head (b^.blackCastleRights)
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [ Nothing ] [[ Long, Short]] [[ Long, Short ]]
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [ Nothing ] [[ Long, Short]] [[ Long, Short ]] 0
 
 
 initialBoard :: Board
 initialBoard = fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-
-
-hash :: Board -> Word64
-hash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
-                    | i <- [0 .. 63]
-                    , pt <- [ pieceAt b i ], isJust pt
-                    , pc <- [ pieceColourAt b i ], isJust pc
-                    ]
-         `xor` zobrist (ZobristSide $ b^.next)
-         `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
-         `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
 
 
 -- | black for white, white for black

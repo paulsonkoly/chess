@@ -151,10 +151,9 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            let ((pv, score), p') = runState (negaScout 5) p
+                            let ((pv, score), p') = runState (negaScout 4) p
                             writeIORef lastPosition p'
-                            return [ RspInfo ("PV " ++ show score ++ " " ++ unwords (map renderShortMove pv))
-                                   , RspInfo ("currmove " ++ (renderShortMove $ head pv))
+                            return [ RspInfo ("currmove " ++ (renderShortMove $ head pv))
                                    , RspBestMove $ head pv
                                    ]
     dialogue lastPosition

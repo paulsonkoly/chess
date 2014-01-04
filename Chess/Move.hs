@@ -45,6 +45,7 @@ import qualified Chess as C
 
 import           Chess.Board
 import           Chess.Magic
+import           Chess.Zobrist
 import           Data.BitBoard
 import           Data.Square
 import           Data.ChessTypes
@@ -162,6 +163,19 @@ flipMoveM m = do
   doOnJust (m^.castle)          $ \c -> modify $ putPiece (rookCaslteBB nxt c) nxt C.Rook
 
 
+recalcHash :: (MonadState Board m) => m ()
+recalcHash = let val b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
+                                    | i <- [0 .. 63]
+                                    , pt <- [ pieceAt b i ], isJust pt
+                                    , pc <- [ pieceColourAt b i ], isJust pc
+                                    ]
+                         `xor` zobrist (ZobristSide $ b^.next)
+                         `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
+                         `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
+             in get >>= \b -> hash .= val b
+
+
+
 -- | makes a @Move@ on a @Board@
 doMoveM :: (MonadState Board m) => Move -> m ()
 doMoveM m = do
@@ -170,6 +184,7 @@ doMoveM m = do
   castleRightsByColour nxt %= (\prev -> (head prev `intersect` castleRights m) : prev)
   next                     %= opponent'
   enPassant                %= ((:) $ if isDoubleAdvance m then Just (m^.to) else Nothing)
+  recalcHash
 
 
 -- | Unmakes the @Move@ on a @Board@
@@ -180,6 +195,7 @@ undoMoveM m = do
   enPassant                %= tail
   nxt <- use next
   castleRightsByColour nxt %= tail
+  recalcHash
 
 
 check :: Board -> C.Color -> Bool

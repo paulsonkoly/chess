@@ -54,7 +54,7 @@ type TransPosCache = LRU Word64 TransPosCacheEntry
 
 
 mkTransPosCache :: TransPosCache
-mkTransPosCache = newLRU $ Just 8192
+mkTransPosCache = newLRU $ Just $ 4 * 8192
 
 
 -- | Just the pair of the modified LRU cache + the entry on hit
@@ -63,7 +63,7 @@ transPosCacheLookUp
   -> Int   -- ^ depth
   -> TransPosCache
   -> Maybe (TransPosCache, TransPosCacheEntry)
-transPosCacheLookUp b d cache = let (cache', mval) = lookup (hash b) cache
+transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                 in case mval of
                                   Just val -> if b == val^.board && val^.depth >= d
                                               then Just (cache', val)
@@ -82,6 +82,6 @@ transPosCacheInsert
 transPosCacheInsert b d t r cache = let mold = transPosCacheLookUp b d cache
                                     in case mold of
                                       Just (_, old) -> if t == Exact && old^.typ /= Exact
-                                                       then insert (hash b) (TPCE b d r t) cache
+                                                       then insert (b^.hash) (TPCE b d r t) cache
                                                        else cache
-                                      Nothing       -> insert (hash b) (TPCE b d r t) cache
+                                      Nothing       -> insert (b^.hash) (TPCE b d r t) cache
