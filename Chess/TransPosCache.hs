@@ -29,6 +29,8 @@ module Chess.TransPosCache
 
 import Prelude hiding (lookup)
 
+import Data.Maybe
+
 import Control.Lens
 import Data.Word       
 import Data.Cache.LRU
@@ -36,7 +38,7 @@ import Chess.Board
 import Chess.Move
 
 
-data TransPosCacheEntryType = Exact | Lower | Upper deriving Eq
+data TransPosCacheEntryType = Exact | Lower | Upper deriving (Eq, Show)
 
 
 data TransPosCacheEntry = TPCE
@@ -57,18 +59,20 @@ mkTransPosCache :: TransPosCache
 mkTransPosCache = newLRU $ Just $ 4 * 8192
 
 
--- | Just the pair of the modified LRU cache + the entry on hit
+-- | Either a move recommendation or Nothing on miss or the cache entry with the updated LRU on hit
 transPosCacheLookUp
   :: Board
   -> Int   -- ^ depth
   -> TransPosCache
-  -> Maybe (TransPosCache, TransPosCacheEntry)
+  -> Either (Maybe Move) (TransPosCache, TransPosCacheEntry)
 transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                 in case mval of
-                                  Just val -> if b == val^.board && val^.depth >= d
-                                              then Just (cache', val)
-                                              else Nothing
-                                  Nothing  -> Nothing
+                                  Just val -> if b == val^.board
+                                              then if val^.depth >= d
+                                                   then Right (cache', val)
+                                                   else Left $ listToMaybe $ fst $ val^.result
+                                              else Left Nothing
+                                  Nothing  -> Left Nothing
 
 
 -- | Returns a cache with the entry inserted
@@ -79,9 +83,9 @@ transPosCacheInsert
   -> SearchResult           -- ^ stored result
   -> TransPosCache
   -> TransPosCache
-transPosCacheInsert b d t r cache = let mold = transPosCacheLookUp b d cache
-                                    in case mold of
-                                      Just (_, old) -> if t == Exact && old^.typ /= Exact
-                                                       then insert (b^.hash) (TPCE b d r t) cache
-                                                       else cache
-                                      Nothing       -> insert (b^.hash) (TPCE b d r t) cache
+transPosCacheInsert b d t r cache = let eold = transPosCacheLookUp b d cache
+                                    in case eold of
+                                      Right (_, old) -> if t == Exact && old^.typ /= Exact
+                                                        then insert (b^.hash) (TPCE b d r t) cache
+                                                        else cache
+                                      Left _         -> insert (b^.hash) (TPCE b d r t) cache

@@ -17,6 +17,7 @@ module Chess.Board
    , fromFEN
    , initialBoard
    -- * Utilities
+   , parserBoard
    , prettyPrint
    , opponent'
    , hash
@@ -58,7 +59,8 @@ import           Data.Monoid
 import           Data.Char
 import           Data.Word
 import           Data.Maybe
-import           Control.Applicative
+
+import           Text.ParserCombinators.Parsec
 
 import qualified Chess     as C
 import qualified Chess.FEN as C
@@ -208,35 +210,53 @@ opponentsPiecesOf b = piecesOf b (b^.opponent)
 
 
 numberOf :: Board -> C.Color -> C.PieceType -> Int
-numberOf b c = popCount . piecesOf b c 
-
-
--- | the chesshs library representation to our BitBoard representation
-clBToB :: C.Board -> Board
-clBToB b = flip execState emptyBoard $ do
-   assign next $ C.turn b
-   doOnJust (C.enpassant b) $ \ep -> enPassant .= [ Just (transEP (ep^._2) * 8 + (ep^._1)) ]
-   whiteCastleRights .= [ concatMap transCR $ filter isUpper (C.castlingAvail b) ]
-   blackCastleRights .= [ concatMap (transCR . toUpper) $ filter isLower (C.castlingAvail b) ]
-   forM_ [ 0 .. 7 ] $ \file ->
-      forM_ [ 0 .. 7 ] $ \rank -> do
-         let
-            mp  = C.pieceAt file rank b
-            sbb = bit $ rank * 8 + file
-         doOnJust mp $ \p -> do
-           piecesByColour (C.clr p)   <>= sbb
-           piecesByType   (C.piece p) <>= sbb
-  where transEP 2 = 3
-        transEP 5 = 4
-        transEP n = error $ "Unexpected rank when translating en passant : " ++ show n
-        transCR 'K' = [ Short ]
-        transCR 'Q' = [ Long ]
-        transCR _   = []
+numberOf b c = popCount . piecesOf b c
 
 
 -- | reads a Board position from a FEN string
 fromFEN :: String -> Maybe Board
-fromFEN s = clBToB <$> C.fromFEN s
+fromFEN s = case parse parserBoard "" s of
+  Left _  -> Nothing
+  Right b -> Just b
+
+
+parserBoard :: Parser Board
+parserBoard = do
+  b <- go emptyBoard 56
+  spaces
+  s <- parserSide
+  spaces
+  c <- parserCastle
+  spaces
+  e <- parserEnp
+  spaces
+  _ <- count 2 $ many digit >> spaces
+  return
+    $ (enPassant .~ [ e ])
+    $ (blackCastleRights .~ [snd c])
+    $ (whiteCastleRights .~ [fst c])
+    $ (next .~ s) b
+  where
+    go b sq = choice [ parserPiece, parserGap, parserSlash, parserSpace ]
+      where parserPiece = do
+              p <- oneOf "rnbqkpRNBQKP"
+              let sbb = bit sq
+              go (piecesByColour (charToColour p) <>~ sbb $ (piecesByType (charToPiece p) <>~ sbb) b) $ sq + 1
+            parserGap   = liftM digitToInt (oneOf "12345678") >>= \g -> go b $ sq + g
+            parserSlash = char '/' >> go b (sq - 16)
+            parserSpace = char ' ' >> (return b)
+            charToColour c
+              | isLower c = C.Black
+              | otherwise = C.White
+    parserSide   = (char 'w' >> return C.White) <|> (char 'b' >> return C.Black)
+    parserCastle = (char '-' >> return ([], [])) <|> go' ([], [])
+    parserEnp    = (char '-' >> return Nothing) <|> liftM Just parserSquare
+    go' p        = choice [ char 'k' >> go' ((_2 <>~ [Short]) p)
+                          , char 'q' >> go' ((_2 <>~ [Long])  p)
+                          , char 'K' >> go' ((_1 <>~ [Short]) p)
+                          , char 'Q' >> go' ((_1 <>~ [Long])  p)
+                          , return p
+                          ]
 
 
 prettyPrint :: Board -> IO ()
@@ -250,7 +270,7 @@ prettyPrint b = do
          putChar '|'
          putChar $ paint file rank $ case pieceAt b (rank * 8 + file) of
             Just C.Pawn   -> 'p'
-            Just C.Knight -> 'k'
+            Just C.Knight -> 'n'
             Just C.Bishop -> 'b'
             Just C.Rook   -> 'r'
             Just C.Queen  -> 'q'

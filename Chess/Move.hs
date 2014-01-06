@@ -4,6 +4,7 @@
 module Chess.Move
    ( Move
    , SearchResult
+   , MoveQueue
    -- * Constructor
    , moves
    , forcingMoves

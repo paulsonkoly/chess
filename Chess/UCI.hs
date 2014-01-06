@@ -82,20 +82,6 @@ p_cmd_go = do
                 return $ case mbTimeout of
                             Nothing -> CmdGo Infinity
                             Just timeout -> CmdGo $ MovetimeMsc timeout
-
-p_position :: Parser Board
-p_position = liftA (fromJust . fromFEN) $ do
-  many $ oneOf "rkbqkpRKBQKP/12345678"
-  spaces
-  oneOf "wb"
-  spaces
-  many $ oneOf "kqKQ-"
-  spaces
-  ((char '-') >> return Nothing) <|> (liftA Just parserSquare)
-  spaces
-  many1 digit
-  spaces
-  many1 digit
                     
     
 p_cmd_position :: CharParser () Command
@@ -104,7 +90,7 @@ p_cmd_position = do
   many1 $ char ' '
   posType <- (string "fen" <|> string "startpos")
   spaces
-  pos <- if posType == "fen" then p_position else return initialBoard
+  pos <- if posType == "fen" then parserBoard else return initialBoard
   spaces
   liftA CmdPosition $ option pos (string "moves" >> parserMoveList pos)
   where
@@ -151,7 +137,7 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            let ((pv, score), p') = runState (negaScout 4) p
+                            let ((pv, score), p') = runState (negaScout 5) p
                             writeIORef lastPosition p'
                             return [ RspInfo ("currmove " ++ (renderShortMove $ head pv))
                                    , RspBestMove $ head pv

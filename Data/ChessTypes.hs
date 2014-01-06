@@ -1,9 +1,10 @@
 module Data.ChessTypes
        ( Castle(..)
        , pieceValue
+       , charToPiece
        ) where
 
-
+import           Data.Char
 import qualified Chess as C
 
 
@@ -18,4 +19,13 @@ pieceValue C.Knight = 30
 pieceValue C.Pawn   = 10
 pieceValue C.King   = 0
 
+
+charToPiece :: Char -> C.PieceType
+charToPiece 'q' = C.Queen
+charToPiece 'r' = C.Rook
+charToPiece 'b' = C.Bishop
+charToPiece 'n' = C.Knight
+charToPiece 'p' = C.Pawn
+charToPiece 'k' = C.King
+charToPiece c   = if c `elem` "QRBNPK" then charToPiece $ toLower c else error "Invalid char in charToPiece"
 

@@ -7,6 +7,7 @@ module Chess.Search
        ) where
 
 import qualified Data.PQueue.Max as Q
+import           Data.Maybe
 
 import           Control.Monad.State
 import           Control.Lens
@@ -55,9 +56,9 @@ renderVariation = unwords . map renderShortMove
 
 
 tryTransPosCache
-  :: Bool                     -- ^ condition
-  -> Int -> Int -> Int -> Int -- ^ depth / alpha / beta / colour
-  -> (Int -> Int -> Int -> Int -> Search)
+  :: Bool                                               -- ^ condition
+  -> Int -> Int -> Int -> Int                           -- ^ depth / alpha / beta / colour
+  -> (Int -> Int -> Int -> Int -> Maybe Move -> Search) -- ^ Maybe move is the TPC recommendation
   -> Search
 tryTransPosCache cond d alpha beta c f =
   if cond
@@ -65,7 +66,7 @@ tryTransPosCache cond d alpha beta c f =
       b <- use board
       t <- use tpc
       case TPC.transPosCacheLookUp b d t of
-        Just (cache', entry) -> do
+        Right (cache', entry) -> do
           tpc .= cache'
           tpcHit += 1
           case entry^.typ of
@@ -73,15 +74,15 @@ tryTransPosCache cond d alpha beta c f =
             TPC.Lower -> let alpha' = max alpha $ snd $ entry^.result
                          in if alpha' >= beta
                             then return ([], alpha')
-                            else f d alpha' beta c
+                            else f d alpha' beta c $ listToMaybe $ fst $ entry^.result
             TPC.Upper -> let beta' = min beta $ snd $ entry^.result
                          in if alpha >= beta'
                             then return ([], alpha)
-                            else f d alpha beta' c
-        Nothing -> do
+                            else f d alpha beta' c $ listToMaybe $ fst $ entry^.result
+        Left mr -> do
           tpcMiss += 1
-          f d alpha beta c
-    else f d alpha beta c
+          f d alpha beta c mr
+    else f d alpha beta c Nothing
 {-# INLINE tryTransPosCache #-}
 
 
@@ -102,22 +103,20 @@ iterateMoves
   -> State SearchState Iterate
 iterateMoves ml alpha beta rep ac = go True (TPC.Upper, ([], alpha)) ml
   where go _ l [] = return l
-        go f p@(_, (_, a)) (m:ms) = do
-          n@(pv, score) <-  ac f m a beta
+        go f p@(_, pr@(_, a)) (m:ms) = do
+          n@(_, score) <-  ac f m a beta
           let cont
-                | a     >= beta = return (TPC.Upper, ([], a))
-                | score >= beta = return (TPC.Lower, ([], beta))
-                | score > a     = info score pv m $ go False (TPC.Exact, n) ms
-                | otherwise     = go False p ms
+                | a     >= beta = return (TPC.Upper, ([m], a))
+                | score >= beta = return (TPC.Lower, ([m], beta))
+                | score > a     = info n m $ go False (TPC.Exact, n) ms
+                | otherwise     = info pr m $ go False p ms
           cont
-        info a pv m ac' = if rep
-                          then get >>= \st -> trace ("info TPC : " ++ show (hitRatio st) ++ "% "
-                                                    ++ show a
-                                                    ++ " PV : " ++ renderVariation pv
-                                                    ++ " curr : " ++ renderShortMove m) ac'
-                          else ac'
-            
-
+        info (pv, score) m ac' = if rep
+                                 then get >>= \st -> trace ("info TPC : " ++ show (hitRatio st) ++ "% "
+                                                            ++ show score
+                                                            ++ " PV : " ++ renderVariation pv
+                                                            ++ " curr : " ++ renderShortMove m) ac'
+                                 else ac'
 
 
 hitRatio :: SearchState -> Int
@@ -132,16 +131,16 @@ negaScout'
   -> Int -- ^ beta
   -> Int -- ^ colour
   -> Search
-negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c' $ \d alpha beta c -> do
+negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c' $ \d alpha beta c mr -> do
   mate <- liftM checkMate $ use board
   if mate
     then liftM (\b -> ([], c * evaluate b)) $ use board
     else if d == 0
           then quiscene alpha beta c
           else do
-            ml <- liftM (map snd . Q.toDescList . moves) $ use board
+            ml <- getMoveList mr moves
             r <- iterateMoves ml alpha beta (mx == d) $ \f m a b ->
-              withMove m $ addM m $ if f
+              withMove m $ addM m $ if not f
                                     then do
                                       n@(_, score) <- negM $ negaScout' mx (d - 1) (-a - 1) (-a) (-c)
                                       if a < score && score < b
@@ -152,19 +151,28 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c
             
 
 quiscene :: Int -> Int -> Int -> Search
-quiscene alpha' beta' c' = tryTransPosCache True 0 alpha' beta' c' $ \_ alpha beta c -> do
+quiscene alpha' beta' c' = tryTransPosCache True 0 alpha' beta' c' $ \_ alpha beta c mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   if standPat >= beta
     then updateTransPosCache 0 (TPC.Lower, ([], beta))
     else do
-       ml <- liftM (map snd . Q.toDescList . forcingMoves) (use board)
+       ml <- getMoveList mr forcingMoves
        let mx = max alpha standPat
        r  <- iterateMoves ml mx beta False $ \ _ m a b -> withMove m $ addM m $ negM $ quiscene (-b) (-a) (-c)
        updateTransPosCache 0 r
-             
+
+
+getMoveList :: Maybe Move -> (Board -> MoveQueue) -> State SearchState [Move]
+getMoveList mr mvs = liftM (addMaybeMove mr . map snd . Q.toDescList . mvs) $ use board
+{-# INLINE getMoveList #-}
+
 
 inf :: Int
 inf = maxBound
+
+
+addMaybeMove :: (Eq a) => Maybe a -> [a] -> [a]
+addMaybeMove mr l = maybe l (\m -> m : filter (/= m) l) mr
 
 
 negM   = mulM (-1)
