@@ -137,7 +137,7 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            let ((pv, score), p') = runState (negaScout 5) p
+                            ((pv, score), p') <- runStateT (runSearch (negaScout 5)) p
                             writeIORef lastPosition p'
                             return [ RspInfo ("currmove " ++ (renderShortMove $ head pv))
                                    , RspBestMove $ head pv
