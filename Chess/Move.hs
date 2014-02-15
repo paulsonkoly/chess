@@ -22,8 +22,10 @@ module Chess.Move
    -- * Parser
    , parserMove
    -- * utils
+   , attacking
    , direction
    , checkMate
+   , staleMate
    , renderShortMove
    )
    where
@@ -199,25 +201,32 @@ undoMoveM m = do
   recalcHash
 
 
-check :: Board -> C.Color -> Bool
-check b c = let kP = head $ toList $ piecesOf b c C.King
-            in isAttacked b (opponent' c) kP
+check b c m = let b' = execState (doMoveM m) b
+              in  inCheck b' c
+
+
+inCheck b c = let kP = head $ toList $ piecesOf b c C.King
+              in isAttacked b (opponent' c) kP
 
 
 -- | Sequence of legal moves
 moves :: Board -> MoveQueue
-moves b = Q.filter (not . check') $ foldl1 Q.union [f b | f <- [ pawnMoves, regularMoves, castleMoves ]]
-  where check' (_, m) = let b' = execState (doMoveM m) b
-                        in check b' (b^.next)
+moves b = Q.filter (not . check b (b^.next) . snd) $ foldl1 Q.union [f b | f <- [ pawnMoves, regularMoves, castleMoves ]]
 
 
 -- | Sequence of captures
 forcingMoves :: Board -> MoveQueue
-forcingMoves b = Q.filter (\(_, m) -> bit (m^.to) .&. occupancy b /= mempty) $ moves b
+forcingMoves b = let cptr m = bit (m^.to) .&. occupancy b /= mempty
+                     chk  m = check b (b^.opponent) m || inCheck b (b^.next)
+                 in Q.filter (\(_, m) -> cptr m || chk m) $ moves b
 
 
 checkMate :: Board -> Bool
-checkMate b = check b (b^.next) && Q.null (moves b)
+checkMate b = inCheck b (b^.next) && Q.null (moves b)
+
+
+staleMate :: Board -> Bool
+staleMate b = not (inCheck b (b^.next)) && Q.null (moves b)
 
 
 pawnMoves :: Board -> MoveQueue
@@ -287,10 +296,6 @@ regularMoves b = moveListToQueue $ do
   return $ (capturedPiece .~ pieceAt b target) $ defaultMove (move^._1) target pt $ b^.next
 
 
-bishopMagics :: Magic
-bishopMagics = makeMagic C.Bishop
-rookMagics :: Magic
-rookMagics   = makeMagic C.Rook
   
   
 -- | the bitboard & the piece position that the given piece type attacks with the given colour
@@ -300,9 +305,9 @@ attacking pt b c =
       notme   = complement $ b^.piecesByColour c
       att pos = (pos, notme .&. m pos)
       m pos   = case pt of
-        C.Queen  -> magic bishopMagics pos (occupancy b) .|. magic rookMagics pos (occupancy b)
-        C.Rook   -> magic rookMagics pos (occupancy b)
-        C.Bishop -> magic bishopMagics pos (occupancy b)
+        C.Queen  -> magic C.Queen pos (occupancy b)
+        C.Rook   -> magic C.Rook pos (occupancy b)
+        C.Bishop -> magic C.Bishop pos (occupancy b)
         C.Knight -> knightAttackBB pos
         C.King   -> kingAttackBB pos
         C.Pawn   -> undefined
@@ -313,14 +318,11 @@ attacking pt b c =
 
 -- | the bitboard from where the piece type of the given colour is attacking the specified position
 attackedBy :: C.PieceType -> Board -> C.Color -> Int -> BitBoard
-attackedBy C.Queen b c pos
-  = (magic bishopMagics pos (occupancy b) .|. magic rookMagics pos (occupancy b)) .&. piecesOf b c C.Queen
+attackedBy C.Queen b c pos = magic C.Queen pos (occupancy b) .&. piecesOf b c C.Queen
 
-attackedBy C.Bishop b c pos
-  = magic bishopMagics pos (occupancy b) .&. piecesOf b c C.Bishop
+attackedBy C.Bishop b c pos = magic C.Bishop pos (occupancy b) .&. piecesOf b c C.Bishop
 
-attackedBy C.Rook b c pos
-  = magic rookMagics pos (occupancy b) .&. piecesOf b c C.Rook
+attackedBy C.Rook b c pos = magic C.Rook pos (occupancy b) .&. piecesOf b c C.Rook
 
 attackedBy C.Knight b c pos = knightAttackBB pos .&. piecesOf b c C.Knight
 

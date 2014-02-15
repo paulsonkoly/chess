@@ -33,11 +33,7 @@
 
 module Chess.Magic
        ( Magic
-         -- * Functions for the engine
-       , makeMagic
        , magic
-         -- * Functions to generate the magic numbers
-       , generateMagic
        )
        where
 
@@ -47,6 +43,7 @@ import           Control.Monad.Random
 import           Control.Lens
 
 import           Data.BitBoard
+import           Data.Square
 import qualified Data.Vector.Unboxed         as V
 import qualified Data.Vector.Unboxed.Mutable as VM
 
@@ -136,18 +133,31 @@ magicIndex msk mgc shft spn occ = spn + (((msk .&. occ) `mul` mgc) `shiftR'` shf
 {-# INLINE magicIndex #-}
 
 
+bishopMagics :: Magic
+bishopMagics = makeMagic C.Bishop
+rookMagics :: Magic
+rookMagics   = makeMagic C.Rook
+
+
+magic :: C.PieceType -> Square -> BitBoard -> BitBoard
+magic C.Rook  sq occ  = magic' rookMagics sq occ
+magic C.Bishop sq occ = magic' bishopMagics sq occ
+magic C.Queen sq occ  = magic' rookMagics sq occ .|. magic' bishopMagics sq occ
+{-# INLINE magic #-}
+
+
 -- | the sliding attack
-magic
-   :: Magic    -- ^ magic database
+magic'
+   :: Magic
    -> Int      -- ^ position
    -> BitBoard -- ^ occupancy
    -> BitBoard -- ^ sliding attacks
-magic m pos occ = let msk  = (m^.masks) `V.unsafeIndex` pos
-                      mgc  = (m^.magics) `V.unsafeIndex` pos
-                      shft = (m^.shifts) `V.unsafeIndex` pos
-                      spn  = (m^.spans) `V.unsafeIndex` pos
-                  in (m^.dat) `V.unsafeIndex` magicIndex msk mgc shft spn occ
-{-# INLINE magic #-}
+magic' m pos occ = let msk  = (m^.masks) `V.unsafeIndex` pos
+                       mgc  = (m^.magics) `V.unsafeIndex` pos
+                       shft = (m^.shifts) `V.unsafeIndex` pos
+                       spn  = (m^.spans) `V.unsafeIndex` pos
+                    in (m^.dat) `V.unsafeIndex` magicIndex msk mgc shft spn occ
+{-# INLINE magic' #-}
 
 
 -- | The dat size

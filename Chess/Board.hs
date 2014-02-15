@@ -56,6 +56,7 @@ module Chess.Board
 import           Control.Monad.State
 import           Control.Lens
 import           Data.Monoid
+import           Data.Bits.Lens
 import           Data.Char
 import           Data.Word
 import           Data.Maybe
@@ -152,6 +153,7 @@ castleRightsByColour
   -> Lens' Board [[ Castle ]]
 castleRightsByColour C.White = whiteCastleRights
 castleRightsByColour C.Black = blackCastleRights
+
 
 
 -- | The piece type at the given position

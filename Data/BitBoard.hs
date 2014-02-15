@@ -24,6 +24,10 @@ module Data.BitBoard
    , fileBB
    , centralSquares
    , largeCentralSquares
+   , largeLargeCentralSquares
+   , rimSquares
+   , darkSquares
+   , lightSquares
    , preMagics
    , sparseRandomBB
    , module Data.Bits
@@ -157,9 +161,22 @@ centralSquares = bit 27 .|. bit 28 .|. bit 35 .|. bit 36
 
 
 largeCentralSquares :: BitBoard
-largeCentralSquares = centralSquares
-                      .|. foldr1 (.|.) [ bit i | i <- [18 .. 21] ++ [26, 29] ++ [34, 37] ++ [42 .. 45]]
+largeCentralSquares = mconcat [ bit $ i + j * 8 | i <- [18 .. 21], j <- [ 0.. 3]]
 
+
+largeLargeCentralSquares :: BitBoard
+largeLargeCentralSquares = mconcat [ bit $ i + j * 8 | i <- [9 .. 14] , j <- [0 .. 5]]
+
+
+darkSquares :: BitBoard
+darkSquares = mconcat [ bit i | i <- [ 1, 3 .. 63 ] ]
+
+lightSquares :: BitBoard
+lightSquares = darkSquares `shift` 1
+
+
+rimSquares :: BitBoard
+rimSquares = complement largeLargeCentralSquares
 
 -- | Sparse random bitboard
 sparseRandomBB :: (MonadRandom m) => m BitBoard
