@@ -3,24 +3,20 @@ module Chess.UCI where
 import           Control.Lens hiding (from, to)
 import           Control.Applicative (liftA)
 import           Control.Monad.State
-import           Data.Bits
 import           Data.List
 import           Data.IORef
 import           System.Exit
-import           Data.Char
 import           Data.Maybe
 import           System.IO
 
 import           Text.ParserCombinators.Parsec
 
-import           Data.Square
 import           Chess.Move
 import           Chess.Board
-import           Chess.Magic
 import           Chess.Search
 import qualified Chess.TransPosCache as TPC
 import           Chess.Evaluation
-import qualified Chess as C
+
 
 data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
                     
@@ -52,29 +48,25 @@ instance Show Response where
         
   
 ------------------ parsers --------------
-p_cmd_uci = do
-                string "uci"
-                return CmdUci
+p_cmd_uci :: Parser Command
+p_cmd_uci = string "uci" >> return CmdUci
 
-p_cmd_isready = do
-                string "isready"
-                return CmdIsReady           
-                
-p_cmd_ucinewgame = do
-                string "ucinewgame"
-                return CmdUciNewGame                
-                
-p_cmd_stop = do
-                string "stop"
-                return CmdStop
-                
-p_cmd_quit = do
-                string "quit"
-                return CmdQuit
+p_cmd_isready :: Parser Command
+p_cmd_isready = string "isready" >> return CmdIsReady           
+
+p_cmd_ucinewgame :: Parser Command
+p_cmd_ucinewgame = string "ucinewgame" >> return CmdUciNewGame                
+
+p_cmd_stop :: Parser Command
+p_cmd_stop = string "stop" >> return CmdStop
+
+p_cmd_quit :: Parser Command
+p_cmd_quit = string "quit" >> return CmdQuit
 
 p_int :: Parser Int
 p_int = liftA read $ many1 digit
-                
+
+p_cmd_go :: Parser Command
 p_cmd_go = do
                 string "go"
                 spaces
@@ -100,7 +92,7 @@ p_cmd_position = do
         Just m  -> parserMoveList (execState (doMoveM m) pos)
         Nothing -> return pos
 
-
+p_cmd :: Parser Command
 p_cmd = (try p_cmd_ucinewgame) <|> p_cmd_uci <|> p_cmd_isready <|> p_cmd_stop <|> p_cmd_quit <|> p_cmd_go <|> p_cmd_position
 
 
@@ -137,9 +129,8 @@ uci = do
                             p <- readIORef lastPosition
                             prettyPrint $ p^.board
                             print $ evaluate $ p^.board
-                            ((pv, score), p') <- runStateT (runSearch (negaScout 4)) p
+                            (pv, p') <- runStateT (runSearch (negaScout 4)) p
                             writeIORef lastPosition p'
-                            return [ RspInfo ("currmove " ++ (renderShortMove $ head pv))
-                                   , RspBestMove $ head pv
-                                   ]
+                            let m = fromJust $ first pv
+                            return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
     dialogue lastPosition

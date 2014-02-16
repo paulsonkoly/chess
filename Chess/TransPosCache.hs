@@ -29,13 +29,12 @@ module Chess.TransPosCache
 
 import Prelude hiding (lookup)
 
-import Data.Maybe
-
 import Control.Lens
 import Data.Word       
 import Data.Cache.LRU
 import Chess.Board
 import Chess.Move
+import Chess.SearchResult
 
 
 data TransPosCacheEntryType = Exact | Lower | Upper deriving (Eq, Show)
@@ -70,7 +69,7 @@ transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                   Just val -> if b == val^.board
                                               then if val^.depth >= d
                                                    then Right (cache', val)
-                                                   else Left $ listToMaybe $ fst $ val^.result
+                                                   else Left $ first $ val^.result
                                               else Left Nothing
                                   Nothing  -> Left Nothing
 

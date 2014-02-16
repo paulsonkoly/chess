@@ -3,7 +3,6 @@
 
 module Chess.Move
    ( Move
-   , SearchResult
    , MoveQueue
    -- * Constructor
    , moves
@@ -79,7 +78,6 @@ $(makeLenses ''Move)
 
 
 type MoveQueue    = Q.MaxQueue (Int, Move)
-type SearchResult = ( [ Move ], Int )
 
 
 direction :: C.Color -> Int -> Int
