@@ -45,17 +45,17 @@ instance Show Response where
   show (RspId name value) = "id " ++ name ++ " " ++ value
   show (RspBestMove move) = "bestmove " ++ renderShortMove move
   show (RspOption text)   = "option " ++ text
-        
-  
+
+
 ------------------ parsers --------------
 p_cmd_uci :: Parser Command
 p_cmd_uci = string "uci" >> return CmdUci
 
 p_cmd_isready :: Parser Command
-p_cmd_isready = string "isready" >> return CmdIsReady           
+p_cmd_isready = string "isready" >> return CmdIsReady
 
 p_cmd_ucinewgame :: Parser Command
-p_cmd_ucinewgame = string "ucinewgame" >> return CmdUciNewGame                
+p_cmd_ucinewgame = string "ucinewgame" >> return CmdUciNewGame
 
 p_cmd_stop :: Parser Command
 p_cmd_stop = string "stop" >> return CmdStop
