@@ -4,7 +4,7 @@ chess
 An other UCI engine written in Haskell
 
 
-This program is still in an early stage, but we managed to beat pyChess at its strongest tetting.
+This program is still in an early stage, but we managed to beat pyChess at its strongest setting.
 
 The game PGN:
 
