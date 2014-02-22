@@ -1,8 +1,5 @@
 module Main (main) where
 
-import           Control.Monad
-import qualified Control.Monad.State as S
-
 import           Data.Maybe
 import qualified Data.PQueue.Max as Q
 
@@ -13,18 +10,10 @@ import           Chess.Board
 
 
 perft :: Int -> Board -> Integer
-perft d = S.evalState (perft' d)
-  where perft' d' = do
-          ms <- liftM (map snd . Q.toList . moves) S.get
-          if d' == 1
-            then return $ fromIntegral $ length ms
-            else
-            do let step m = do
-                     doMoveM m
-                     result <- perft' (d' - 1)
-                     undoMoveM m
-                     return result                            
-               liftM sum $ mapM step ms
+perft d b = let ms = map snd $ Q.toList $ moves b
+            in if d == 1
+               then fromIntegral $ length ms
+               else sum [ perft (d - 1) (makeMove m b) | m <- ms ]
 
 
 -- from http://chessprogramming.wikispaces.com/Perft+Results

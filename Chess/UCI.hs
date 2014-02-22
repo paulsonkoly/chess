@@ -89,7 +89,7 @@ p_cmd_position = do
     parserMoveList pos = do
       mm <- optionMaybe (spaces >> parserMove pos)
       case mm of
-        Just m  -> parserMoveList (execState (doMoveM m) pos)
+        Just m  -> parserMoveList $ makeMove m pos
         Nothing -> return pos
 
 p_cmd :: Parser Command

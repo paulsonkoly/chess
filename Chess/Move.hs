@@ -15,9 +15,8 @@ module Chess.Move
    , capturedPiece
    , enPassantTarget
    , castle
-   -- * Stateful do move
-   , doMoveM
-   , undoMoveM
+   -- * Stateless do move
+   , makeMove
    -- * Parser
    , parserMove
    -- * utils
@@ -31,15 +30,15 @@ module Chess.Move
 
 import           Control.Lens hiding (from, to, op, at, (|>))
 import           Control.Monad
-import           Control.Monad.State
+import           Control.Applicative
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Vector.Unboxed ((!))
 import qualified Data.Vector.Unboxed as V
 import qualified Data.PQueue.Max as Q
 import           Data.List
-import           Data.Functor
 import qualified Data.Foldable as F
+import           Data.Word
 
 import           Text.ParserCombinators.Parsec
 
@@ -51,7 +50,6 @@ import           Chess.Zobrist
 import           Data.BitBoard
 import           Data.Square
 import           Data.ChessTypes
-import           Control.Extras
 
 
 data Move = Move
@@ -152,20 +150,8 @@ castleRights m
 {-# INLINE castleRights #-}
 
 
-flipMoveM :: (MonadState Board m) => Move -> m ()
-flipMoveM m = do
-  let (f, t) = (fromBB m, toBB m)
-      ft     = f `xor` t
-  nxt <- use next
-  modify (putPiece ft nxt (m^.piece))
-  doOnJust (m^.capturedPiece)   $ \c -> modify $ putPiece t (opponent' nxt) c
-  doOnJust (m^.promotion)       $ \p -> modify $ promote t p
-  doOnJust (m^.enPassantTarget) $ \e -> modify $ putPiece (bit e) (opponent' nxt) C.Pawn
-  doOnJust (m^.castle)          $ \c -> modify $ putPiece (rookCaslteBB nxt c) nxt C.Rook
-
-
-recalcHash :: (MonadState Board m) => m ()
-recalcHash = let val b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
+calcHash :: Board -> Word64
+calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
                                     | i <- [0 .. 63]
                                     , pt <- [ pieceAt b i ], isJust pt
                                     , pc <- [ pieceColourAt b i ], isJust pc
@@ -173,34 +159,25 @@ recalcHash = let val b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ piece
                          `xor` zobrist (ZobristSide $ b^.next)
                          `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
                          `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
-             in get >>= \b -> hash .= val b
 
 
-
--- | makes a @Move@ on a @Board@
-doMoveM :: (MonadState Board m) => Move -> m ()
-doMoveM m = do
-  flipMoveM m
-  nxt <- use next
-  castleRightsByColour nxt %= (\prev -> (head prev `intersect` castleRights m) : prev)
-  next                     %= opponent'
-  enPassant                %= ((:) $ if isDoubleAdvance m then Just (m^.to) else Nothing)
-  recalcHash
-
-
--- | Unmakes the @Move@ on a @Board@
-undoMoveM :: (MonadState Board m) => Move -> m ()
-undoMoveM m = do
-  next                     %= opponent'
-  flipMoveM m
-  enPassant                %= tail
-  nxt <- use next
-  castleRightsByColour nxt %= tail
-  recalcHash
+makeMove :: Move -> Board -> Board
+makeMove m b = let (f, t) = (fromBB m, toBB m)
+                   ft     = f `xor` t
+                   nxt    = b^.next
+                   mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) C.Rook) (m^.castle)
+                            . maybe id (\e -> putPiece (bit e) (b^.opponent) C.Pawn)  (m^.enPassantTarget)
+                            . maybe id (promote t) (m^.promotion)
+                            . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
+                            . (putPiece ft nxt (m^.piece))
+                   cstlTrs = castleRightsByColour (b^.next) %~ (\prev -> (head prev `intersect` castleRights m) : prev)
+                   nxtTrs  = next %~ opponent'
+                   enpTrs  = enPassant %~ ((:) $ if isDoubleAdvance m then Just (m^.to) else Nothing)
+                   hshTrs  = hash .~ calcHash b
+               in hshTrs $ enpTrs $ nxtTrs $ cstlTrs $ mvsTrs b
 
 
-check b c m = let b' = execState (doMoveM m) b
-              in  inCheck b' c
+check b c m = inCheck (makeMove m b) c
 
 
 inCheck b c = let kP = head $ toList $ piecesOf b c C.King

@@ -69,9 +69,10 @@ negaScout d = do
 
 withMove :: Move -> Search a -> Search a
 withMove m ac = do
-  board %= execState (doMoveM m)
+  old <- use board
+  board %= makeMove m
   r <- ac
-  board %= execState (undoMoveM m)
+  board .= old
   return r
 {-# INLINE withMove #-}
 

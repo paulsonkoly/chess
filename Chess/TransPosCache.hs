@@ -67,7 +67,7 @@ transPosCacheLookUp
 transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                 in case mval of
                                   Just val -> if b == val^.board
-                                              then if val^.depth >= d
+                                              then if val^.depth <= d
                                                    then Right (cache', val)
                                                    else Left $ first $ val^.result
                                               else Left Nothing
@@ -84,7 +84,5 @@ transPosCacheInsert
   -> TransPosCache
 transPosCacheInsert b d t r cache = let eold = transPosCacheLookUp b d cache
                                     in case eold of
-                                      Right (_, old) -> if t == Exact && old^.typ /= Exact
-                                                        then insert (b^.hash) (TPCE b d r t) cache
-                                                        else cache
-                                      Left _         -> insert (b^.hash) (TPCE b d r t) cache
+                                      Right _ -> cache
+                                      Left  _ -> insert (b^.hash) (TPCE b d r t) cache
