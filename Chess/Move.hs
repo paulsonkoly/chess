@@ -152,14 +152,14 @@ castleRights m
 
 calcHash :: Board -> Word64
 calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
-                                    | i <- [0 .. 63]
-                                    , pt <- [ pieceAt b i ], isJust pt
-                                    , pc <- [ pieceColourAt b i ], isJust pc
-                                    ]
-                         `xor` zobrist (ZobristSide $ b^.next)
-                         `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
-                         `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
-
+                        | i <- [0 .. 63]
+                        , pt <- [ pieceAt b i ], isJust pt
+                        , pc <- [ pieceColourAt b i ], isJust pc
+                        ]
+             `xor` zobrist (ZobristSide $ b^.next)
+             `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
+             `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
+             
 
 makeMove :: Move -> Board -> Board
 makeMove m b = let (f, t) = (fromBB m, toBB m)

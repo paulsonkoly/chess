@@ -5,11 +5,13 @@ module Chess.Search
        ( negaScout
        , Search(..)
        , SearchState(..)
+       , mkSearchState
        , module Chess.SearchResult
        , board
        ) where
 
 import qualified Data.PQueue.Max as Q
+import           Data.Maybe
 
 import           Control.Monad.State
 import           Control.Lens
@@ -17,17 +19,21 @@ import           Control.Lens
 import           Chess.Board
 import qualified Chess.TransPosCache as TPC
 import           Chess.TransPosCache (result, typ)
-import           Chess.SearchResult (SearchResult(..), eval, first)
-import qualified Chess.SearchResult as SR ((<@>), (<++>), moves)
+import           Chess.SearchResult (SearchResult(..), eval, first, renderVariation)
+import qualified Chess.SearchResult as SR ((<@>), (<++>))
 import           Chess.Evaluation
 import           Chess.Move
 
 data SearchState = SearchState
-                   { _board   :: Board
-                   , _tpc     :: TPC.TransPosCache
-                   , _tpcHit  :: ! Int
-                   , _tpcMiss :: ! Int
+                   { _board    :: Board
+                   , _tpc      :: TPC.TransPosCache
+                   , _tpcHit   :: ! Int
+                   , _tpcMiss  :: ! Int
+                   , _nCnt     :: ! Int
                    }
+
+mkSearchState :: SearchState
+mkSearchState = SearchState initialBoard TPC.mkTransPosCache 0 0 0
 
 
 $(makeLenses ''SearchState)                   
@@ -54,14 +60,21 @@ f <@> m = liftM (f SR.<@>) m
 (<++>) :: Move -> Search SearchResult -> Search SearchResult
 x <++> m = liftM (x SR.<++>) m
     
+data LoopResult = LoopResult
+                  { _tpcEntryT :: ! TPC.TransPosCacheEntryType
+                  , _line      :: ! SearchResult
+                  }
 
-type Iterate = (TPC.TransPosCacheEntryType, SearchResult)
+$(makeLenses ''LoopResult)
 
 
 negaScout
   :: Int -- ^ depth
   -> Search SearchResult
 negaScout d = do
+  tpcHit   .= 0
+  tpcMiss  .= 0
+  nCnt     .= 0
   c <- liftM (\b -> direction (b^.next) 1) $ use board
   (c*) <@> negaScout' d d (-inf) inf c
 
@@ -75,11 +88,6 @@ withMove m ac = do
   board .= old
   return r
 {-# INLINE withMove #-}
-
-
-renderVariation :: [ Move ] -> String
-renderVariation = unwords . map renderShortMove
-
 
 tryTransPosCache
   :: Bool                                               -- ^ condition
@@ -112,12 +120,12 @@ tryTransPosCache cond d alpha beta c f =
 {-# INLINE tryTransPosCache #-}
 
 
-updateTransPosCache :: Int -> Iterate -> Search SearchResult
-updateTransPosCache d (t, r) = do
+finishLoop :: Int -> LoopResult -> Search SearchResult
+finishLoop d lr = do
   b <- use board
-  tpc %= TPC.transPosCacheInsert b d t r
-  return r
-{-# INLINE updateTransPosCache #-}
+  tpc %= TPC.transPosCacheInsert b d (lr^.tpcEntryT) (lr^.line)
+  return $ lr^.line
+{-# INLINE finishLoop #-}
 
 
 iterateMoves
@@ -126,28 +134,28 @@ iterateMoves
   -> Int                                    -- ^ beta
   -> Bool                                   -- ^ Report
   -> (Bool -> Move -> Int -> Int -> Search SearchResult) -- ^ True is fed in in the first iteration (for negascout)
-  -> Search Iterate
-iterateMoves ml alpha beta rep ac = go True (TPC.Upper, SearchResult [] alpha) ml
+  -> Search LoopResult
+iterateMoves ml alpha beta rep ac = go True (LoopResult TPC.Upper $ SearchResult [] alpha) ml
   where go _ l [] = return l
-        go f p@(_, prev) (m:ms) = do
-          nxt <- ac f m (prev^.eval) beta
+        go f prev (m:ms) = do
+          let prevVal = prev^.line^.eval
+          nxt <- ac f m prevVal beta
           let cont
-                | prev^.eval >= beta     = return (TPC.Upper, SearchResult [m] $ prev^.eval)
-                | nxt^.eval >= beta      = return (TPC.Lower, SearchResult [m] beta)
-                | nxt^.eval > prev^.eval = info nxt m >> go False (TPC.Exact, nxt) ms
-                | otherwise              = info prev m >> go False p ms
+                | nxt^.eval >= beta   = return $ LoopResult TPC.Lower $ SearchResult [m] beta
+                | nxt^.eval > prevVal = info nxt m >> go False (LoopResult TPC.Exact nxt) ms
+                | otherwise           = info (prev^.line) m >> go False prev ms
           cont
         info sr m = when rep $ get >>= \st -> liftIO $ putStrLn ("info TPC : " ++ show (hitRatio st) ++ "% "
-                                                                 ++ show (sr^.eval)
-                                                                 ++ " PV : " ++ renderVariation (sr^.SR.moves)
+                                                                 ++ show (st^.nCnt `div` 1000) ++ "kn "
+                                                                 ++ " PV : " ++ renderVariation sr
                                                                  ++ " curr : " ++ renderShortMove m)
 
-
+percentage :: Int -> Int -> Int
+percentage a b = if a == 0 then 0 else 100 * b `div` a
 
 hitRatio :: SearchState -> Int
-hitRatio st = let s = st^.tpcHit + st^.tpcMiss
-              in if s == 0 then 0 else (st^.tpcHit * 100) `div` s
-        
+hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
+
 
 negaScout'
   :: Int -- ^ max depth
@@ -159,7 +167,9 @@ negaScout'
 negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c' $ \d alpha beta c mr -> do
   mate <- liftM checkMate $ use board
   if mate
-    then liftM (\b -> SearchResult [] $ c * evaluate b) $ use board
+    then do
+      nCnt += 1
+      liftM (\b -> SearchResult [] $ c * evaluate b) $ use board
     else if d == 0
           then quiscene alpha beta c
           else do
@@ -172,20 +182,22 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c
                                       then ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
                                       else return n
                                   else ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
-            updateTransPosCache d r
+            finishLoop d r
             
 
 quiscene :: Int -> Int -> Int -> Search SearchResult
 quiscene alpha' beta' c' = tryTransPosCache True 0 alpha' beta' c' $ \_ alpha beta c mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
+  nCnt += 1
   if standPat >= beta
-    then updateTransPosCache 0 (TPC.Lower, SearchResult [] beta)
+    then finishLoop 0 $ LoopResult TPC.Lower $ SearchResult [] beta
     else do
        ml <- getMoveList mr forcingMoves
        let mx = max alpha standPat
        r  <- iterateMoves ml mx beta False $
              \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene (-b) (-a) (-c))
-       updateTransPosCache 0 r
+       finishLoop 0 r
+
 
 
 getMoveList :: Maybe Move -> (Board -> MoveQueue) -> Search [Move]
