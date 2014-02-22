@@ -11,7 +11,6 @@ module Chess.Search
        ) where
 
 import qualified Data.PQueue.Max as Q
-import           Data.Maybe
 
 import           Control.Monad.State
 import           Control.Lens
@@ -90,33 +89,31 @@ withMove m ac = do
 {-# INLINE withMove #-}
 
 tryTransPosCache
-  :: Bool                                               -- ^ condition
-  -> Int -> Int -> Int -> Int                           -- ^ depth / alpha / beta / colour
+  :: Int -> Int -> Int -> Int                                        -- ^ depth / alpha / beta / colour
   -> (Int -> Int -> Int -> Int -> Maybe Move -> Search SearchResult) -- ^ Maybe move is the TPC recommendation
   -> Search SearchResult
-tryTransPosCache cond d alpha beta c f =
-  if cond
-    then do
-      b <- use board
-      t <- use tpc
-      case TPC.transPosCacheLookUp b d t of
-        Right (cache', entry) -> do
-          tpc .= cache'
-          tpcHit += 1
-          case entry^.typ of
-            TPC.Exact -> return $ entry^.result
-            TPC.Lower -> let alpha' = max alpha $ entry^.result^.eval
-                         in if alpha' >= beta
-                            then return $ SearchResult [] alpha'
-                            else f d alpha' beta c $ first $ entry^.result
-            TPC.Upper -> let beta' = min beta $ entry^.result^.eval
-                         in if alpha >= beta'
-                            then return $ SearchResult [] alpha
-                            else f d alpha beta' c $ first $ entry^.result
-        Left mr -> do
-          tpcMiss += 1
-          f d alpha beta c mr
-    else f d alpha beta c Nothing
+tryTransPosCache d alpha beta c f = do
+  b <- use board
+  t <- use tpc
+
+  case TPC.transPosCacheLookUp b d t of
+    
+    Right (cache', entry) -> do
+      tpc .= cache'
+      tpcHit += 1
+      case entry^.typ of
+        TPC.Exact -> return $ entry^.result
+        TPC.Lower -> let alpha' = max alpha $ entry^.result^.eval
+                     in if alpha' >= beta
+                        then return $ SearchResult [] alpha'
+                        else f d alpha' beta c $ first $ entry^.result
+        TPC.Upper -> let beta' = min beta $ entry^.result^.eval
+                     in if alpha >= beta'
+                        then return $ SearchResult [] alpha
+                        else f d alpha beta' c $ first $ entry^.result
+    Left mr -> do
+      tpcMiss += 1
+      f d alpha beta c mr
 {-# INLINE tryTransPosCache #-}
 
 
@@ -164,7 +161,7 @@ negaScout'
   -> Int -- ^ beta
   -> Int -- ^ colour
   -> Search SearchResult
-negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c' $ \d alpha beta c mr -> do
+negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alpha beta c mr -> do
   mate <- liftM checkMate $ use board
   if mate
     then do
@@ -186,7 +183,7 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache (d' /= mx) d' alpha' beta' c
             
 
 quiscene :: Int -> Int -> Int -> Search SearchResult
-quiscene alpha' beta' c' = tryTransPosCache True 0 alpha' beta' c' $ \_ alpha beta c mr -> do
+quiscene alpha' beta' c' = tryTransPosCache 0 alpha' beta' c' $ \_ alpha beta c mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   nCnt += 1
   if standPat >= beta
