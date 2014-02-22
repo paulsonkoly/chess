@@ -69,8 +69,6 @@ import qualified Chess.FEN as C
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
-import           Control.Extras
-
 
 data Board = Board
    { _whitePieces       :: ! BitBoard
