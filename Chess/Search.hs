@@ -77,7 +77,9 @@ negaScout d = do
   tpcMiss  .= 0
   nCnt     .= 0
   c <- liftM (\b -> direction (b^.next) 1) $ use board
-  (c*) <@> negaScout' d d (-inf) inf c
+  r <- (c*) <@> negaScout' d d (-inf) inf c
+  kill %= bulkInsertKiller (r^.SR.moves)
+  return r
 
 
 

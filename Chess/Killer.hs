@@ -14,6 +14,7 @@ module Chess.Killer
        , mkKiller
        -- * Data manipulation
        , insertKiller
+       , bulkInsertKiller
        -- * Query
        , killer
        ) where
@@ -38,7 +39,13 @@ insertKiller
 insertKiller d (Just m) (Killer v) = let o = filter (/= m) $ v ! d
                                          t = if length o > 2 then init o else o
                                      in Killer $ v // [ (d, m : t) ]
+
 insertKiller _ Nothing k = k 
+
+
+bulkInsertKiller :: [ Move ] -> Killer -> Killer
+bulkInsertKiller [] k = k
+bulkInsertKiller ml@(m:ms) k = bulkInsertKiller ms $ insertKiller (length ml) (Just m) k
 
 
 -- the new move list with the heuristics applied
@@ -47,6 +54,7 @@ killer
   -> [ Move ]
   ->  Killer
   -> [ Move ]
-killer d ms (Killer v) = let ks = v ! d ++ (v ! (d + 2))
+killer d ms (Killer v) = let m2 = if d >= 2 then v ! (d - 2) else []
+                             ks = v ! d ++ (v ! (d + 2)) ++ m2
                              i = intersect ks ms
                          in i ++ (ms \\ i)
