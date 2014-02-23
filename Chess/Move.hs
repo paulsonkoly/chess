@@ -61,11 +61,7 @@ data Move = Move
             , _capturedPiece   :: ! (Maybe C.PieceType)
             , _enPassantTarget :: ! (Maybe Int)
             , _castle          :: ! (Maybe Castle)
-            } deriving Show
-
-
-instance Eq Move  where _ == _      = True
-instance Ord Move where compare _ _ = EQ
+            } deriving (Show, Eq)
 
 
 defaultMove :: Int -> Int -> C.PieceType -> C.Color -> Move
@@ -368,6 +364,9 @@ moveValue m c = promo + check + capture + position
     check    = 0 -- ???
     capture  = maybe 0 pieceValue $ m^.capturedPiece
     position = positionValue (m^.piece) c (m^.to) - positionValue (m^.piece) c (m^.from)
+
+instance Ord Move where
+  compare a b = moveValue a (a^.colour) `compare` moveValue b (b^.colour)
 
 
 -- | the number of possible moves from the square

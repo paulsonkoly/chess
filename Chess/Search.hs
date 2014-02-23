@@ -18,24 +18,26 @@ import           Control.Lens
 import           Chess.Board
 import qualified Chess.TransPosCache as TPC
 import           Chess.TransPosCache (result, typ)
+import           Chess.Killer
 import           Chess.SearchResult (SearchResult(..), eval, first, renderVariation)
-import qualified Chess.SearchResult as SR ((<@>), (<++>))
+import qualified Chess.SearchResult as SR ((<@>), (<++>), moves)
 import           Chess.Evaluation
 import           Chess.Move
 
 data SearchState = SearchState
                    { _board    :: Board
                    , _tpc      :: TPC.TransPosCache
+                   , _kill     :: Killer
                    , _tpcHit   :: ! Int
                    , _tpcMiss  :: ! Int
-                   , _nCnt     :: ! Int
+                   , _nCnt     :: ! Int                     
                    }
 
 mkSearchState :: SearchState
-mkSearchState = SearchState initialBoard TPC.mkTransPosCache 0 0 0
+mkSearchState = SearchState initialBoard TPC.mkTransPosCache mkKiller 0 0 0
 
 
-$(makeLenses ''SearchState)                   
+$(makeLenses ''SearchState)
 
 
 newtype Search a = Search { runSearch :: StateT SearchState IO a }
@@ -117,22 +119,34 @@ tryTransPosCache d alpha beta c f = do
 {-# INLINE tryTransPosCache #-}
 
 
-finishLoop :: Int -> LoopResult -> Search SearchResult
-finishLoop d lr = do
-  b <- use board
-  tpc %= TPC.transPosCacheInsert b d (lr^.tpcEntryT) (lr^.line)
-  return $ lr^.line
-{-# INLINE finishLoop #-}
+withKiller
+  :: [ Move ]
+  -> Int
+  -> Int
+  -> Int
+  -> Bool
+  -> (Bool -> Move -> Int -> Int -> Search SearchResult) -- ^ True is fed in in the first iteration (for negascout)
+  -> Search LoopResult  
+withKiller ml d alpha beta rep ac = do
+  ml' <- liftM (killer d ml) (use kill)
+  lr@(LoopResult t res) <- iterateMoves ml' d alpha beta rep ac
+  when (t == TPC.Lower) $ kill %= insertKiller d (first res)
+  return lr
 
 
 iterateMoves
   :: [ Move ]
+  -> Int                                    -- ^ depth
   -> Int                                    -- ^ alpha
   -> Int                                    -- ^ beta
   -> Bool                                   -- ^ Report
   -> (Bool -> Move -> Int -> Int -> Search SearchResult) -- ^ True is fed in in the first iteration (for negascout)
   -> Search LoopResult
-iterateMoves ml alpha beta rep ac = go True (LoopResult TPC.Upper $ SearchResult [] alpha) ml
+iterateMoves ml d alpha beta rep ac = do
+  lr <- go True (LoopResult TPC.Upper $ SearchResult [] alpha) ml
+  b  <- use board
+  tpc %= TPC.transPosCacheInsert b d (lr^.tpcEntryT) (lr^.line)
+  return lr
   where go _ l [] = return l
         go f prev (m:ms) = do
           let prevVal = prev^.line^.eval
@@ -171,7 +185,7 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alph
           then quiscene alpha beta c
           else do
             ml <- getMoveList mr moves
-            r <- iterateMoves ml alpha beta (mx == d) $ \f m a b ->
+            r <- withKiller ml d alpha beta (mx == d) $ \f m a b ->
               withMove m $ m <++> if not f
                                   then do
                                     n <- ((-1)*) <@> negaScout' mx (d - 1) (-a - 1) (-a) (-c)
@@ -179,7 +193,8 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alph
                                       then ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
                                       else return n
                                   else ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
-            finishLoop d r
+            return $ r^.line
+
             
 
 quiscene :: Int -> Int -> Int -> Search SearchResult
@@ -187,13 +202,16 @@ quiscene alpha' beta' c' = tryTransPosCache 0 alpha' beta' c' $ \_ alpha beta c 
   standPat <- liftM ((c*) . evaluate) (use board)
   nCnt += 1
   if standPat >= beta
-    then finishLoop 0 $ LoopResult TPC.Lower $ SearchResult [] beta
+    then do
+       b  <- use board
+       tpc %= TPC.transPosCacheInsert b 0 TPC.Lower (SearchResult [] beta)
+       return $ SearchResult [] beta 
     else do
        ml <- getMoveList mr forcingMoves
        let mx = max alpha standPat
-       r  <- iterateMoves ml mx beta False $
-             \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene (-b) (-a) (-c))
-       finishLoop 0 r
+       r <- iterateMoves ml 0 mx beta False $
+         \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene (-b) (-a) (-c))
+       return $ r^.line
 
 
 
