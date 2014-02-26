@@ -56,7 +56,6 @@ module Chess.Board
 import           Control.Monad.State
 import           Control.Lens
 import           Data.Monoid
-import           Data.Bits.Lens
 import           Data.Char
 import           Data.Word
 import           Data.Maybe
@@ -64,7 +63,6 @@ import           Data.Maybe
 import           Text.ParserCombinators.Parsec
 
 import qualified Chess     as C
-import qualified Chess.FEN as C
 
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
@@ -80,9 +78,9 @@ data Board = Board
    , _kings             :: ! BitBoard
    , _pawns             :: ! BitBoard
    , _next              :: ! C.Color
-   , _enPassant         :: ! [ Maybe Int ]
-   , _whiteCastleRights :: ! [ [ Castle ] ]
-   , _blackCastleRights :: ! [ [ Castle ] ]
+   , _enPassant         :: ! (Maybe Int)
+   , _whiteCastleRights :: ! ([ Castle ])
+   , _blackCastleRights :: ! ([ Castle ])
    , _hash              :: Word64
    } deriving (Show)
 
@@ -101,12 +99,12 @@ instance Eq Board where
            && a^.kings             == b^.kings             
            && a^.pawns             == b^.pawns             
            && a^.next              == b^.next              
-           && head (a^.enPassant)         == head (b^.enPassant)
-           && head (a^.whiteCastleRights) == head (b^.whiteCastleRights)
-           && head (a^.blackCastleRights) == head (b^.blackCastleRights)
+           && a^.enPassant         == b^.enPassant
+           && a^.whiteCastleRights == b^.whiteCastleRights
+           && a^.blackCastleRights == b^.blackCastleRights
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White [ Nothing ] [[ Long, Short]] [[ Long, Short ]] 0
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White Nothing [ Long, Short ] [ Long, Short ] 0
 
 
 initialBoard :: Board
@@ -148,7 +146,7 @@ piecesByType C.King   = kings
 -- | Castle rights lens corresponding to the given colour
 castleRightsByColour
   :: C.Color
-  -> Lens' Board [[ Castle ]]
+  -> Lens' Board [ Castle ]
 castleRightsByColour C.White = whiteCastleRights
 castleRightsByColour C.Black = blackCastleRights
 
@@ -232,9 +230,9 @@ parserBoard = do
   spaces
   _ <- count 2 $ many digit >> spaces
   return
-    $ (enPassant .~ [ e ])
-    $ (blackCastleRights .~ [snd c])
-    $ (whiteCastleRights .~ [fst c])
+    $ (enPassant .~ e)
+    $ (blackCastleRights .~ snd c)
+    $ (whiteCastleRights .~ fst c)
     $ (next .~ s) b
   where
     go b sq = choice [ parserPiece, parserGap, parserSlash, parserSpace ]
@@ -244,7 +242,7 @@ parserBoard = do
               go (piecesByColour (charToColour p) <>~ sbb $ (piecesByType (charToPiece p) <>~ sbb) b) $ sq + 1
             parserGap   = liftM digitToInt (oneOf "12345678") >>= \g -> go b $ sq + g
             parserSlash = char '/' >> go b (sq - 16)
-            parserSpace = char ' ' >> (return b)
+            parserSpace = char ' ' >> return b
             charToColour c
               | isLower c = C.Black
               | otherwise = C.White

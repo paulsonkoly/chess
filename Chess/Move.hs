@@ -153,8 +153,8 @@ calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i
                         , pc <- [ pieceColourAt b i ], isJust pc
                         ]
              `xor` zobrist (ZobristSide $ b^.next)
-             `xor` zobrist (ZobristCastlingRights (head $ b^.whiteCastleRights) (head $ b^.blackCastleRights))
-             `xor` zobrist (ZobristEnPassant $ head $ b^.enPassant)
+             `xor` zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights))
+             `xor` zobrist (ZobristEnPassant $ b^.enPassant)
              
 
 makeMove :: Move -> Board -> Board
@@ -166,9 +166,9 @@ makeMove m b = let (f, t) = (fromBB m, toBB m)
                             . maybe id (promote t) (m^.promotion)
                             . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
                             . (putPiece ft nxt (m^.piece))
-                   cstlTrs = castleRightsByColour (b^.next) %~ (\prev -> (head prev `intersect` castleRights m) : prev)
+                   cstlTrs = castleRightsByColour (b^.next) %~ intersect (castleRights m)
                    nxtTrs  = next %~ opponent'
-                   enpTrs  = enPassant %~ ((:) $ if isDoubleAdvance m then Just (m^.to) else Nothing)
+                   enpTrs  = enPassant .~ if isDoubleAdvance m then Just (m^.to) else Nothing
                    hshTrs  = hash .~ calcHash b
                in hshTrs $ enpTrs $ nxtTrs $ cstlTrs $ mvsTrs b
 
@@ -239,7 +239,7 @@ pawnAdvances b = do
   
 
 pawnEnPassant :: Board -> MoveQueue
-pawnEnPassant b = moveListToQueue $ flip (maybe []) (join $ listToMaybe $ b^.enPassant) $ \square ->
+pawnEnPassant b = moveListToQueue $ flip (maybe []) (b^.enPassant) $ \square ->
   let bb = (bit (square + 1) .|. bit (square - 1)) .&. neighbourFilesBB (square .&. 7) .&. myPiecesOf b C.Pawn
   in do
     pawn <- toList bb
@@ -250,7 +250,7 @@ pawnEnPassant b = moveListToQueue $ flip (maybe []) (join $ listToMaybe $ b^.enP
 
 castleMoves :: Board -> MoveQueue
 castleMoves b = moveListToQueue $ do
-  side <- head $ b^.castleRightsByColour (b^.next)
+  side <- b^.castleRightsByColour (b^.next)
   let (f, t)    = kingCastleMove (b^.next) side
       checkSqrs = toSeq $ checkCastleBB (b^.next) side
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
@@ -331,7 +331,7 @@ parserMove b = do
   promotionCh <- optionMaybe $ oneOf "qrbn"
   let promo = charToPt <$> promotionCh
       enp   = if Just C.Pawn == pieceAt b f && isNothing (pieceAt b t) && abs (f - t) .&. 7 /= 0
-              then head $ b^.enPassant
+              then b^.enPassant
               else Nothing
       cstl  = if Just C.King == pieceAt b f && abs (f - t) == 2
               then Just $ if f - t == 2 then Long else Short
