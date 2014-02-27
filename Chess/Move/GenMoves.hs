@@ -23,12 +23,12 @@ import           Chess.Move.Attacks
 import           Chess.Board
 
 
-type MoveQueue = Q.MaxQueue (Int, Move)
+type MoveQueue = Q.MaxQueue Move
 
 -- | Sequence of legal moves
 moves :: Board -> [ Move ]
-moves b = map snd $ Q.toDescList $
-          Q.filter (not . check b (b^.next) . snd) $ foldl1 Q.union [f b | f <- [ pawnMoves, regularMoves, castleMoves ]]
+moves b = Q.toDescList
+          $ Q.filter (not . check b (b^.next)) $ foldl1 Q.union [f b | f <- [ pawnMoves, regularMoves, castleMoves ]]
 
 
 -- | Sequence of captures
@@ -38,12 +38,6 @@ forcingMoves b = let cptr m = bit (m^.to) .&. occupancy b /= mempty
                  in filter (\m -> cptr m || chk m) $ moves b
 
 
-
-
-moveListToQueue :: [ Move ] -> MoveQueue
-moveListToQueue = Q.fromList . map (\m -> (moveValue m $ m^.colour, m))
-
-
 pawnMoves :: Board -> MoveQueue
 pawnMoves b = pawnEnPassant b `Q.union` captures `Q.union` advances
   where promotable m = if m^.to <= 7 || m^.to >= 56
@@ -51,7 +45,7 @@ pawnMoves b = pawnEnPassant b `Q.union` captures `Q.union` advances
                           promo <- [ C.Queen, C.Rook, C.Knight, C.Bishop ]
                           return $ (promotion .~ Just promo) m
                        else [ m ]
-        conv l = moveListToQueue $ concatMap promotable l
+        conv l = Q.fromList $ concatMap promotable l
         captures = conv $ (\(f, t) -> (capturedPiece .~ pieceAt b t) $ defaultMove f t C.Pawn (b^.next)) <$> pawnCaptures b
         advances = conv $ (\(f, t) -> defaultMove f t C.Pawn (b^.next))                                  <$> pawnAdvances b
 
@@ -83,7 +77,7 @@ pawnAdvances b = do
   
 
 pawnEnPassant :: Board -> MoveQueue
-pawnEnPassant b = moveListToQueue $ flip (maybe []) (b^.enPassant) $ \square ->
+pawnEnPassant b = Q.fromList $ flip (maybe []) (b^.enPassant) $ \square ->
   let bb = (bit (square + 1) .|. bit (square - 1)) .&. neighbourFilesBB (square .&. 7) .&. myPiecesOf b C.Pawn
   in do
     pawn <- toList bb
@@ -93,7 +87,7 @@ pawnEnPassant b = moveListToQueue $ flip (maybe []) (b^.enPassant) $ \square ->
 
 
 castleMoves :: Board -> MoveQueue
-castleMoves b = moveListToQueue $ do
+castleMoves b = Q.fromList $ do
   side <- b^.castleRightsByColour (b^.next)
   let (f, t)    = kingCastleMove (b^.next) side
       checkSqrs = toSeq $ checkCastleBB (b^.next) side
@@ -104,7 +98,7 @@ castleMoves b = moveListToQueue $ do
 
 -- | non pawn moves nor castles
 regularMoves :: Board -> MoveQueue
-regularMoves b = moveListToQueue $ do
+regularMoves b = Q.fromList $ do
   pt     <- [ C.Knight, C.Bishop, C.Rook,  C.Queen, C.King ]
   move   <- attacking pt b (b^.next)
   target <- toList $ move^._2
