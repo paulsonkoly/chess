@@ -2,6 +2,7 @@ module Data.ChessTypes
        ( Castle(..)
        , pieceValue
        , charToPiece
+       , direction
        ) where
 
 import           Data.Char
@@ -29,3 +30,8 @@ charToPiece 'p' = C.Pawn
 charToPiece 'k' = C.King
 charToPiece c   = if c `elem` "QRBNPK" then charToPiece $ toLower c else error "Invalid char in charToPiece"
 
+
+direction :: C.Color -> Int -> Int
+direction C.White = id
+direction C.Black = (* (-1))
+{-# INLINE direction #-}

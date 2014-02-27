@@ -12,6 +12,7 @@ import           Data.Monoid
 
 import           Data.BitBoard hiding (toList)
 import qualified Data.BitBoard as BB (toList)
+import           Data.ChessTypes
 import           Chess.Board
 import           Chess.Move
 import           Chess.Magic

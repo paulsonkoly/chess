@@ -10,11 +10,10 @@ module Chess.Search
        , board
        ) where
 
-import qualified Data.PQueue.Max as Q
-
 import           Control.Monad.State
 import           Control.Lens
 
+import           Data.ChessTypes
 import           Chess.Board
 import qualified Chess.TransPosCache as TPC
 import           Chess.TransPosCache (result, typ)
@@ -217,8 +216,8 @@ quiscene alpha' beta' c' = tryTransPosCache 0 alpha' beta' c' $ \_ alpha beta c 
 
 
 
-getMoveList :: Maybe Move -> (Board -> MoveQueue) -> Search [Move]
-getMoveList mr mvs = liftM (addMaybeMove mr . map snd . Q.toDescList . mvs) $ use board
+getMoveList :: Maybe Move -> (Board -> [Move]) -> Search [Move]
+getMoveList mr mvs = liftM (addMaybeMove mr . mvs) $ use board
 {-# INLINE getMoveList #-}
 
 

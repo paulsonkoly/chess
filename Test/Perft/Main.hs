@@ -1,7 +1,6 @@
 module Main (main) where
 
 import           Data.Maybe
-import qualified Data.PQueue.Max as Q
 
 import           Test.HUnit
 
@@ -10,7 +9,7 @@ import           Chess.Board
 
 
 perft :: Int -> Board -> Integer
-perft d b = let ms = map snd $ Q.toList $ moves b
+perft d b = let ms = moves b
             in if d == 1
                then fromIntegral $ length ms
                else sum [ perft (d - 1) (makeMove m b) | m <- ms ]
