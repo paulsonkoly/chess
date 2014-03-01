@@ -50,8 +50,8 @@ data Move = Move
 $(makeLenses ''Move)
 
 
-instance Ord Move where
-  compare a b = moveValue a (a^.colour) `compare` moveValue b (b^.colour)
+--instance Ord Move where
+--  compare a b = moveValue a (a^.colour) `compare` moveValue b (b^.colour)
 
 
 defaultMove :: Int -> Int -> C.PieceType -> C.Color -> Move
@@ -100,14 +100,8 @@ renderShortMove m = showSquare (m^.from) ++ showSquare (m^.to) ++ showPromotion 
 -- | heuristic value of a Move
 --
 -- This heuristic controls the order of the move generator.
-moveValue :: Move -> C.Color -> Int
-moveValue m c = promo + check + capture + position
-  where
-    -- or maybe 0 (\p -> pieceValue p - pieceValue m^.piece)
-    promo    = maybe 0 pieceValue $ m^.promotion
-    check    = 0 -- ???
-    capture  = maybe 0 pieceValue $ m^.capturedPiece
-    position = positionValue (m^.piece) c (m^.to) - positionValue (m^.piece) c (m^.from)
+moveValue :: Move -> Int
+moveValue m = positionValue (m^.piece) (m^.colour) (m^.to) - positionValue (m^.piece) (m^.colour) (m^.from)
 
 
 -- | the number of possible moves from the square
