@@ -54,6 +54,7 @@ module Chess.Board
    where
 
 import           Control.Monad.State
+import           Data.Functor
 import           Control.Lens
 import           Data.Monoid
 import           Data.Char
@@ -226,7 +227,7 @@ parserBoard = do
   spaces
   c <- parserCastle
   spaces
-  e <- parserEnp
+  e <- liftM (transEnp <$>) parserEnp
   spaces
   _ <- count 2 $ many digit >> spaces
   return
@@ -255,6 +256,7 @@ parserBoard = do
                           , char 'Q' >> go' ((_1 <>~ [Long])  p)
                           , return p
                           ]
+    transEnp sq = sq + 8 * if sq `shiftR` 3 == 2 then 1 else -1
 
 
 prettyPrint :: Board -> IO ()
