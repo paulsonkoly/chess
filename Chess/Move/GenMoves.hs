@@ -34,7 +34,7 @@ moves b = let cs = nub (simpleChecks b ++ discoveredChecks b) -- the nub is not 
               ps = pawnCaptures b ++ pawnPromotions b ++ captures b ++ pawnEnPassants b
               ts = castleQuiet b
               nq = quietMoves b ++ pawnQuietMoves b
-          in nub $ filter (not . check b (b^.next)) $ cs ++ (ps \\ cs) ++ ts ++ (nq \\ cs)
+          in filter (not . check b (b^.next)) $ cs ++ (ps \\ cs) ++ ts ++ (nq \\ cs)
 
 
 -- | Checks, captures and promotions
@@ -67,15 +67,13 @@ simpleChecks b = do
   pt <- [ C.Queen, C.Rook, C.Bishop, C.Knight ]
   
   let kingMoves  = moveFun b pt (eKingPos b) .&. complement (myPieces b)
-      pieceMoves = mconcat $ do
-        ps <- toList $ piecesOf b (b^.next) pt
-        return $ moveFun b pt ps
+  f <- toList $ piecesOf b (b^.next) pt
+  let pieceMoves = moveFun b pt f
       common = kingMoves .&. pieceMoves
-  
+      
   -- common should be mempty most of the time, so we should
   -- short circuit the calcualtion from this point
   t <- toList common
-  f <- toList $ piecesOf b (b^.next) pt
   guard $ moveValid pt f t
   return
     $ (capturedPiece .~ pieceAt b t)
