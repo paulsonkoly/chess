@@ -67,7 +67,7 @@ transPosCacheLookUp
 transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                 in case mval of
                                   Just val -> if b == val^.board
-                                              then if val^.depth <= d
+                                              then if val^.depth >= d
                                                    then Right (cache', val)
                                                    else Left $ first $ val^.result
                                               else Left Nothing
