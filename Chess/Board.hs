@@ -65,6 +65,7 @@ import           Text.ParserCombinators.Parsec
 
 import qualified Chess     as C
 
+import           Chess.Zobrist
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
@@ -83,26 +84,11 @@ data Board = Board
    , _whiteCastleRights :: ! ([ Castle ])
    , _blackCastleRights :: ! ([ Castle ])
    , _hash              :: Word64
-   } deriving (Show)
+   } deriving (Show, Eq)
 
 
 $(makeLenses ''Board)
 
--- TODO remove me, history shouldn't be here
-instance Eq Board where
-  a == b = a^.whitePieces == b^.whitePieces
-           && a^.whitePieces       == b^.whitePieces       
-           && a^.blackPieces       == b^.blackPieces       
-           && a^.rooks             == b^.rooks             
-           && a^.knights           == b^.knights           
-           && a^.bishops           == b^.bishops           
-           && a^.queens            == b^.queens            
-           && a^.kings             == b^.kings             
-           && a^.pawns             == b^.pawns             
-           && a^.next              == b^.next              
-           && a^.enPassant         == b^.enPassant
-           && a^.whiteCastleRights == b^.whiteCastleRights
-           && a^.blackCastleRights == b^.blackCastleRights
 
 emptyBoard :: Board
 emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White Nothing [ Long, Short ] [ Long, Short ] 0
@@ -220,7 +206,7 @@ fromFEN s = case parse parserBoard "" s of
 
 
 parserBoard :: Parser Board
-parserBoard = do
+parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
   b <- go emptyBoard 56
   spaces
   s <- parserSide
@@ -257,6 +243,18 @@ parserBoard = do
                           , return p
                           ]
     transEnp sq = sq + 8 * if sq `shiftR` 3 == 2 then 1 else -1
+
+
+-- | calculates hash from scratch
+calcHash :: Board -> Word64
+calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
+                        | i <- [0 .. 63]
+                        , pt <- [ pieceAt b i ], isJust pt
+                        , pc <- [ pieceColourAt b i ], isJust pc
+                        ]
+             `xor` zobrist (ZobristSide $ b^.next)
+             `xor` zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights))
+             `xor` zobrist (ZobristEnPassant $ b^.enPassant)
 
 
 prettyPrint :: Board -> IO ()
