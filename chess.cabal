@@ -36,8 +36,8 @@ executable chess
                        monad-loops     ==0.4.*,
                        containers      ==0.5.*,
                        parsec          ==3.1.*,
-                       lrucache        ==1.1.*,
-                       pqueue          ==1.2.*
+                       lrucache        ==1.1.*
+
 
 executable perft
   main-is:             Test/Perft/Main.hs
@@ -60,5 +60,5 @@ executable perft
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
                        vector-th-unbox ==0.2.*,
-                       parsec          ==3.1.*,
-                       pqueue          ==1.2.*
+                       parsec          ==3.1.*
+
