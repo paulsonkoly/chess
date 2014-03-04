@@ -244,7 +244,7 @@ pawnEnPassantSquares b = case b^.enPassant of
 
 castleMoves :: Board -> Bool -> [ Move ]
 castleMoves b chk = do
-  side <- b^.castleRightsByColour (b^.next)
+  side <- toCastleList $ b^.castleRightsByColour (b^.next)
   let kRays     = magic C.Rook (eKingPos b) (occupancy b)
       (f, t)    = kingCastleMove (b^.next) side
       rt        = (f + t) `div` 2

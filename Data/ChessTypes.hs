@@ -1,15 +1,66 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Data.ChessTypes
-       ( Castle(..)
+       ( -- * Castling
+         CastlingRights
+       , Castle(..)
+       , toCastleList
+       , fromCastle
+       , intersect
+       -- * Utilities
        , pieceValue
        , charToPiece
        , direction
        ) where
 
 import           Data.Char
+import           Data.Monoid
 import qualified Chess as C
 
 
-data Castle = Short | Long deriving (Show, Eq, Enum)
+newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Eq, Bounded)
+
+
+-- I have tried the tuple-gen package, but that doesn't define the right instance of
+-- Enum (a, b).
+instance Enum CastlingRights where
+  fromEnum (CastlingRights (False, False)) = 0
+  fromEnum (CastlingRights (False, True))  = 1
+  fromEnum (CastlingRights (True, False))  = 2
+  fromEnum (CastlingRights (True, True))   = 3
+  toEnum 0 = CastlingRights (False, False)
+  toEnum 1 = CastlingRights (False, True)
+  toEnum 2 = CastlingRights (True, False)
+  toEnum 3 = CastlingRights (True, True)
+  toEnum _ = error "Can't convert to CastlingRights"
+
+
+instance Monoid CastlingRights where
+  mempty = CastlingRights (False, False)
+  mappend = binFunc (||)
+
+
+data Castle = Short | Long deriving (Show, Eq)
+
+
+toCastleList :: CastlingRights -> [ Castle ]
+toCastleList (CastlingRights (True, True)) = [ Short, Long ]
+toCastleList (CastlingRights (True, False)) = [ Long ]
+toCastleList (CastlingRights (False, True)) = [ Short ]
+toCastleList (CastlingRights (False, False)) = []
+
+
+fromCastle :: Castle -> CastlingRights
+fromCastle Short = CastlingRights (False, True)
+fromCastle Long  = CastlingRights (True, False)
+
+
+intersect :: CastlingRights -> CastlingRights -> CastlingRights
+intersect = binFunc (&&)
+
+
+binFunc :: (Bool -> Bool -> Bool) -> CastlingRights -> CastlingRights -> CastlingRights
+binFunc f (CastlingRights (a, b)) (CastlingRights (c, d)) = CastlingRights (a `f` c, b `f` d)
 
 
 pieceValue :: C.PieceType -> Int

@@ -18,8 +18,8 @@ import qualified Data.Vector.Unboxed as V
 import           Data.Vector.Unboxed ((!))
 
 import           Data.BitBoard
-import           Data.Square
 import           Data.ChessTypes
+import           Data.Square
 import qualified Chess as C
 
 
@@ -30,8 +30,8 @@ data ZobristKey = ZobristPiece
                   }
                 | ZobristSide { side :: C.Color }
                 | ZobristCastlingRights
-                  { whiteRights :: [ Castle ]
-                  , blackRights :: [ Castle ]
+                  { whiteRights :: CastlingRights
+                  , blackRights :: CastlingRights
                   }
                 | ZobristEnPassant { enPassantSquare :: Maybe Square }
                     
@@ -41,10 +41,11 @@ zobrist :: ZobristKey -> Word64
 zobrist k = zobristVec ! zobristKey k
   where zobristKey (ZobristPiece sq c pt)        = (sq * 12) + colVal c * 6 + ptVal pt
         zobristKey (ZobristSide c)               = 12 * 64 + colVal c
-        zobristKey (ZobristCastlingRights wc bc) = 12 * 64 + 2 + 3 * crVal wc + crVal bc
-        zobristKey (ZobristEnPassant (Just sq))  = 12 * 64 + 2 + 9 + (sq .&. 7)
-        zobristKey (ZobristEnPassant Nothing)    = 12 * 64 + 2 + 9 + 8
-        crVal = sum . map ((1 +) . fromEnum)
+        zobristKey (ZobristCastlingRights wc bc) = 12 * 64 + 2 + crVal wc bc
+        zobristKey (ZobristEnPassant (Just sq))  = 12 * 64 + 2 + maxCastle * maxCastle + (sq .&. 7)
+        zobristKey (ZobristEnPassant Nothing)    = 12 * 64 + 2 + maxCastle * maxCastle + 8
+        maxCastle = fromEnum (maxBound :: CastlingRights)
+        crVal wc bc = maxCastle * fromEnum wc + fromEnum bc
         colVal C.White = 0
         colVal C.Black = 1
         ptVal C.Rook = 0

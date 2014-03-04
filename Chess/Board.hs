@@ -12,7 +12,6 @@
  -}
 module Chess.Board
    ( Board
-   , Castle(..)
    -- * Constructors
    , fromFEN
    , initialBoard
@@ -81,8 +80,8 @@ data Board = Board
    , _pawns             :: ! BitBoard
    , _next              :: ! C.Color
    , _enPassant         :: ! (Maybe Int)
-   , _whiteCastleRights :: ! ([ Castle ])
-   , _blackCastleRights :: ! ([ Castle ])
+   , _whiteCastleRights :: ! CastlingRights
+   , _blackCastleRights :: ! CastlingRights
    , _hash              :: Word64
    } deriving (Show, Eq)
 
@@ -91,7 +90,7 @@ $(makeLenses ''Board)
 
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White Nothing [ Long, Short ] [ Long, Short ] 0
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White Nothing mempty mempty 0
 
 
 initialBoard :: Board
@@ -133,7 +132,7 @@ piecesByType C.King   = kings
 -- | Castle rights lens corresponding to the given colour
 castleRightsByColour
   :: C.Color
-  -> Lens' Board [ Castle ]
+  -> Lens' Board CastlingRights
 castleRightsByColour C.White = whiteCastleRights
 castleRightsByColour C.Black = blackCastleRights
 
@@ -234,12 +233,12 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
               | isLower c = C.Black
               | otherwise = C.White
     parserSide   = (char 'w' >> return C.White) <|> (char 'b' >> return C.Black)
-    parserCastle = (char '-' >> return ([], [])) <|> go' ([], [])
+    parserCastle = (char '-' >> return (mempty, mempty)) <|> go' (mempty, mempty)
     parserEnp    = (char '-' >> return Nothing) <|> liftM Just parserSquare
-    go' p        = choice [ char 'k' >> go' ((_2 <>~ [Short]) p)
-                          , char 'q' >> go' ((_2 <>~ [Long])  p)
-                          , char 'K' >> go' ((_1 <>~ [Short]) p)
-                          , char 'Q' >> go' ((_1 <>~ [Long])  p)
+    go' p        = choice [ char 'k' >> go' ((_2 <>~ fromCastle Short) p)
+                          , char 'q' >> go' ((_2 <>~ fromCastle Long) p)
+                          , char 'K' >> go' ((_1 <>~ fromCastle Short) p)
+                          , char 'Q' >> go' ((_1 <>~ fromCastle Long) p)
                           , return p
                           ]
     transEnp sq = sq + 8 * if sq `shiftR` 3 == 2 then 1 else -1

@@ -46,8 +46,10 @@ executable chess
                        parsec          ==3.1.*,
                        lrucache        ==1.1.*
 
+
+
 Test-Suite perft
-  type:	               exitcode-stdio-1.0
+  type:                exitcode-stdio-1.0
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
   ghc-options:         -Wall -fwarn-tabs -O2

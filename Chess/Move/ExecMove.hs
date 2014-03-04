@@ -3,12 +3,13 @@ module Chess.Move.ExecMove
        ) where
 
 import           Control.Lens hiding (to, from)
-import           Data.List
 import           Data.Word
+import           Data.Monoid
 
 import qualified Chess as C
 import           Data.BitBoard
 import           Data.Square
+import           Data.ChessTypes
 import           Chess.Move.Move
 import           Chess.Board
 import           Chess.Zobrist
@@ -67,12 +68,12 @@ rookCaslteBB col ctl = fromPositionList [ fst $ rookCasltePos col ctl, snd $ roo
 {-# INLINE rookCaslteBB #-}
 
 
-castleRights :: Move -> [ Castle ]
+castleRights :: Move -> CastlingRights
 castleRights m
-  | m^.piece == C.King                               = []
-  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 0) = [ Short ]
-  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 7) = [ Long  ]
-  | otherwise                                        = [ Short, Long ]
+  | m^.piece == C.King                               = mempty
+  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 0) = fromCastle Short
+  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 7) = fromCastle Long
+  | otherwise                                        = fromCastle Short <> fromCastle Long
 {-# INLINE castleRights #-}
 
 

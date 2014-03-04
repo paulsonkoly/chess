@@ -2,6 +2,7 @@
 
 module Chess.Move.Move
    ( Move
+   , Castle(..)
    -- * Constructor
    , defaultMove
    -- * Lenses
@@ -29,11 +30,10 @@ import           Data.Functor
 
 import qualified Chess as C
 
-import           Data.ChessTypes
 import           Chess.Board
 import           Data.BitBoard
 import           Data.Square
-
+import           Data.ChessTypes
 
 data Move = Move
             { _from            :: ! Int
@@ -48,10 +48,6 @@ data Move = Move
 
 
 $(makeLenses ''Move)
-
-
---instance Ord Move where
---  compare a b = moveValue a (a^.colour) `compare` moveValue b (b^.colour)
 
 
 defaultMove :: Int -> Int -> C.PieceType -> C.Color -> Move
