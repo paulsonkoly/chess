@@ -219,7 +219,7 @@ pawnCaptureSquares b = do
       cFiles _ _       = error "Unexpected numbers"
   capture <- [7, 9]  -- left and right capture
   target  <- toList $ opponentsPieces b .&. ((myPawns .&. cFiles capture (b^.next)) `shift` direction (b^.next) capture)
-  return (offset target (direction (b^.next) capture), target, Nothing)
+  return (offset target (direction (b^.opponent) capture), target, Nothing)
 
 
 -- | Pawn advances (from, to) including promotions, excluding captures
