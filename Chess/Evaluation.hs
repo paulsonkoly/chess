@@ -12,6 +12,7 @@ import           Data.Monoid
 
 import           Data.BitBoard hiding (toList)
 import qualified Data.BitBoard as BB (toList)
+import           Data.Square
 import           Data.ChessTypes
 import           Chess.Board
 import           Chess.Move
@@ -74,13 +75,13 @@ evaluatePins b col = (-3) * if opening b
                         
 
 evaluateRookPosition :: Board -> C.Color -> Int
-evaluateRookPosition b col = let mr C.White w = rankBB 0 `shift` direction col (8 * w)
-                                 mr C.Black w = rankBB 63 `shift` direction col (8 * w)
-                                 onOpen       = length $ filter (== mempty)
-                                                [ piecesOf b col C.Pawn .&. fileBB r
-                                                | r <- BB.toList $ mr col 0 .&. piecesOf b col C.Rook
-                                                ]
-                                 onSeventh    = popCount $ mr (opponent' col) 8 .&. piecesOf b col C.Rook
+evaluateRookPosition b col = let mySeventh = if col == C.White then seventhRank else secondRank
+                                 onSeventh = popCount $ rankBB mySeventh .&. piecesOf b col C.Rook
+                                 onOpen    = sum [ 1
+                                                 | r <- BB.toList $ piecesOf b col C.Rook
+                                                 , let f = fileBB $ file r
+                                                 , f .&. piecesOf b col C.Pawn /= mempty
+                                                 ]
                              in 5 * (onOpen + onSeventh)
 
 
@@ -106,7 +107,7 @@ endGame b = popCount (occupancy b) < 16
 
 evaluatePawnPosition :: Board -> C.Color -> Int
 evaluatePawnPosition b col = let myPawns      = piecesOf b col C.Pawn
-                                 blocking c f = length $ filter f [ fileBB p .&. piecesOf b c C.Pawn | p <- BB.toList myPawns ]
+                                 blocking c f = length $ filter f [ fileBB (file p) .&. piecesOf b c C.Pawn | p <- BB.toList myPawns ]
                                  passed       = blocking (opponent' col) (==mempty)
                                  double       = blocking col (/=mempty) 
                              in if endGame b

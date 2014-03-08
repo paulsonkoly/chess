@@ -19,7 +19,7 @@ makeMove m b = let (f, t) = (fromBB m, toBB m)
                    ft     = f `xor` t
                    nxt    = b^.next
                    mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) C.Rook) (m^.castle)
-                            . maybe id (\e -> putPiece (bit e) (b^.opponent) C.Pawn)  (m^.enPassantTarget)
+                            . maybe id (\e -> putPiece (fromSquare e) (b^.opponent) C.Pawn)  (m^.enPassantTarget)
                             . maybe id (promote t) (m^.promotion)
                             . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
                             . putPiece ft nxt (m^.piece)
@@ -31,12 +31,12 @@ makeMove m b = let (f, t) = (fromBB m, toBB m)
 
 
 fromBB :: Move -> BitBoard
-fromBB = bit . (^.from)
+fromBB = fromSquare . (^.from)
 {-# INLINE fromBB #-}
 
 
 toBB :: Move -> BitBoard
-toBB = bit . (^.to)
+toBB = fromSquare . (^.to)
 {-# INLINE toBB #-}
 
 
@@ -56,29 +56,29 @@ promote bb pt = (pawns %~ xor bb) . (piecesByType pt %~ xor bb)
 
 
 rookCasltePos :: C.Color -> Castle -> (Square, Square)
-rookCasltePos C.White Long  = (0,  3 )
-rookCasltePos C.White Short = (5,  7 )
-rookCasltePos C.Black Long  = (56, 59)
-rookCasltePos C.Black Short = (61, 63)
+rookCasltePos C.White Long  = (toSquare aFile firstRank, toSquare cFile firstRank)
+rookCasltePos C.White Short = (toSquare fFile firstRank, toSquare hFile firstRank)
+rookCasltePos C.Black Long  = (toSquare aFile eighthRank, toSquare cFile eighthRank)
+rookCasltePos C.Black Short = (toSquare fFile eighthRank, toSquare hFile eighthRank)
 {-# INLINE rookCasltePos #-}
 
 
 rookCaslteBB :: C.Color -> Castle -> BitBoard
-rookCaslteBB col ctl = fromPositionList [ fst $ rookCasltePos col ctl, snd $ rookCasltePos col ctl ]
+rookCaslteBB col ctl = fromList [ fst $ rookCasltePos col ctl, snd $ rookCasltePos col ctl ]
 {-# INLINE rookCaslteBB #-}
 
 
 castleRights :: Move -> CastlingRights
 castleRights m
-  | m^.piece == C.King                               = mempty
-  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 0) = fromCastle Short
-  | (m^.piece == C.Rook) && (((m^.from) .&. 7) == 7) = fromCastle Long
-  | otherwise                                        = fromCastle Short <> fromCastle Long
+  | m^.piece == C.King                                = mempty
+  | (m^.piece == C.Rook) && (file (m^.from) == aFile) = fromCastle Short
+  | (m^.piece == C.Rook) && (file (m^.from) == hFile) = fromCastle Long
+  | otherwise                                         = fromCastle Short <> fromCastle Long
 {-# INLINE castleRights #-}
 
 
 isDoubleAdvance :: Move -> Bool
-isDoubleAdvance m = m^.piece == C.Pawn && (9 < abs (m^.from - m^.to))
+isDoubleAdvance m = m^.piece == C.Pawn && vDist (m^.from) ( m^.to) > 1
 {-# INLINE isDoubleAdvance #-}
 
 

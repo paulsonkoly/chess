@@ -31,18 +31,17 @@ import           Data.Functor
 import qualified Chess as C
 
 import           Chess.Board
-import           Data.BitBoard
 import           Data.Square
 import           Data.ChessTypes
 
 data Move = Move
-            { _from            :: ! Int
-            , _to              :: ! Int
+            { _from            :: ! Square
+            , _to              :: ! Square
             , _piece           :: ! C.PieceType
             , _colour          :: ! C.Color
             , _promotion       :: ! (Maybe C.PieceType)
             , _capturedPiece   :: ! (Maybe C.PieceType)
-            , _enPassantTarget :: ! (Maybe Int)
+            , _enPassantTarget :: ! (Maybe Square)
             , _castle          :: ! (Maybe Castle)
             } deriving (Show, Eq)
 
@@ -50,7 +49,7 @@ data Move = Move
 $(makeLenses ''Move)
 
 
-defaultMove :: Int -> Int -> C.PieceType -> C.Color -> Move
+defaultMove :: Square -> Square -> C.PieceType -> C.Color -> Move
 defaultMove f t pt c = Move f t pt c Nothing Nothing Nothing Nothing
 
 
@@ -62,11 +61,14 @@ parserMove b = do
   t <- parserSquare
   promotionCh <- optionMaybe $ oneOf "qrbn"
   let promo = charToPt <$> promotionCh
-      enp   = if Just C.Pawn == pieceAt b f && isNothing (pieceAt b t) && abs (f - t) .&. 7 /= 0
+      enp   = if Just C.Pawn == pieceAt b f && isNothing (pieceAt b t) && (file f /= file t)
               then b^.enPassant
               else Nothing
-      cstl  = if Just C.King == pieceAt b f && abs (f - t) == 2
-              then Just $ if f - t == 2 then Long else Short
+      cstl  = if Just C.King == pieceAt b f
+              then case hDiff f t of
+                2  -> return Long
+                (-2) -> return Short
+                _  -> Nothing
               else Nothing
   return
     $ (promotion .~ promo)
@@ -79,12 +81,12 @@ parserMove b = do
     charToPt 'r' = C.Rook
     charToPt 'b' = C.Bishop
     charToPt 'n' = C.Knight
+    charToPt _   = error "Unexpected char"
 
 
 renderShortMove :: Move -> String
-renderShortMove m = showSquare (m^.from) ++ showSquare (m^.to) ++ showPromotion (m^.promotion)
+renderShortMove m = show (m^.from) ++ show (m^.to) ++ showPromotion (m^.promotion)
   where
-    showSquare sq = (['a' .. 'h'] !! (sq .&. 7)) : show (1 + (sq `shiftR` 3))
     showPromotion (Just C.Queen) = "q"
     showPromotion (Just C.Knight) = "n"
     showPromotion (Just C.Rook) = "r"
@@ -117,9 +119,9 @@ positionValue C.Pawn C.White sq = V.fromList [ 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
                                              , 2 , 3 , 3 , 3 , 3 , 3 , 3 , 2
                                              , 2 , 3 , 3 , 3 , 3 , 3 , 3 , 2
                                              , 0 , 0 , 0 , 0 , 0 , 0 , 0 , 0
-                                             ] ! sq
+                                             ] ! fromEnum sq
 
-positionValue C.Pawn C.Black sq = positionValue C.Pawn C.White $ (56 - (sq .&. 56)) .|. (sq .&. 7)
+positionValue C.Pawn C.Black sq = positionValue C.Pawn C.White $ mirror sq
 
 
 positionValue C.Knight _ sq = V.fromList [ 2 , 3 , 4 , 4 , 4 , 4 , 3 , 2
@@ -130,7 +132,7 @@ positionValue C.Knight _ sq = V.fromList [ 2 , 3 , 4 , 4 , 4 , 4 , 3 , 2
                                          , 4 , 6 , 8 , 8 , 8 , 8 , 6 , 4
                                          , 3 , 4 , 6 , 6 , 6 , 6 , 4 , 3
                                          , 2 , 3 , 4 , 4 , 4 , 4 , 3 , 2
-                                         ] ! sq
+                                         ] ! fromEnum sq
 
 
 positionValue C.King C.White sq = V.fromList [ 3 , 5 , 10 , 5 , 5 , 5 , 10 , 3 
@@ -141,9 +143,9 @@ positionValue C.King C.White sq = V.fromList [ 3 , 5 , 10 , 5 , 5 , 5 , 10 , 3
                                              , 5 , 8 , 8 , 8 , 8 , 8 , 8 , 5 
                                              , 5 , 8 , 8 , 8 , 8 , 8 , 8 , 5 
                                              , 3 , 5 , 5 , 5 , 5 , 5 , 5 , 3
-                                             ] ! sq
+                                             ] ! fromEnum sq
 
-positionValue C.King C.Black sq = positionValue C.King C.White $ (56 - (sq .&. 56)) .|. (sq .&. 7)
+positionValue C.King C.Black sq = positionValue C.King C.White $ mirror sq
 
 
 positionValue C.Bishop _ sq = V.fromList [ 7 , 7 , 7 , 7 , 7 , 7 , 7 , 7 
@@ -154,7 +156,7 @@ positionValue C.Bishop _ sq = V.fromList [ 7 , 7 , 7 , 7 , 7 , 7 , 7 , 7
                                          , 7 , 9 ,11 ,11 ,11 ,11 , 9 , 7
                                          , 7 , 9 , 9 , 9 , 9 , 9 , 9 , 7
                                          , 7 , 7 , 7 , 7 , 7 , 7 , 7 , 7
-                                         ] ! sq
+                                         ] ! fromEnum sq
 
 positionValue C.Rook _ _ = 14
 
@@ -167,7 +169,7 @@ positionValue C.Queen _ sq = V.fromList [ 21 , 21 , 21 , 21 , 21 , 21 , 21 , 21
                                         , 21 , 23 , 25 , 25 , 25 , 25 , 23 , 21
                                         , 21 , 23 , 23 , 23 , 23 , 23 , 23 , 21
                                         , 21 , 21 , 21 , 21 , 21 , 21 , 21 , 21
-                                        ] ! sq
+                                        ] ! fromEnum sq
                              
 
 

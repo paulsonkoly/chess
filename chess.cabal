@@ -52,8 +52,16 @@ Test-Suite perft
   type:                exitcode-stdio-1.0
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
-                       -funbox-strict-fields
+  if flag(profiling)
+     ghc-options:         -Wall -fwarn-tabs -O2
+                          -funbox-strict-fields
+                          -rtsopts
+                          -prof -auto-all -osuf=_p.a
+                          -ddump-simpl -ddump-to-file
+  else
+     ghc-options:         -Wall -fwarn-tabs -O2
+                          -funbox-strict-fields
+                          -rtsopts
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,

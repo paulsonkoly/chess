@@ -69,6 +69,7 @@ import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
 
+
 data Board = Board
    { _whitePieces       :: ! BitBoard
    , _blackPieces       :: ! BitBoard
@@ -79,7 +80,7 @@ data Board = Board
    , _kings             :: ! BitBoard
    , _pawns             :: ! BitBoard
    , _next              :: ! C.Color
-   , _enPassant         :: ! (Maybe Int)
+   , _enPassant         :: ! (Maybe Square)
    , _whiteCastleRights :: ! CastlingRights
    , _blackCastleRights :: ! CastlingRights
    , _hash              :: Word64
@@ -139,7 +140,7 @@ castleRightsByColour C.Black = blackCastleRights
 
 
 -- | The piece type at the given position
-pieceAt :: Board -> Int -> Maybe C.PieceType
+pieceAt :: Board -> Square -> Maybe C.PieceType
 pieceAt b pos
    | b^.pawns   .&. p /= mempty = Just C.Pawn
    | b^.knights .&. p /= mempty = Just C.Knight
@@ -148,7 +149,7 @@ pieceAt b pos
    | b^.queens  .&. p /= mempty = Just C.Queen
    | b^.kings   .&. p /= mempty = Just C.King
    | otherwise                  = Nothing
-   where p = bit pos
+   where p = fromSquare pos
 
 
 -- | The piece colour at a given position
@@ -157,7 +158,7 @@ pieceColourAt b pos
   | b^.whitePieces .&. p /= mempty = Just C.White
   | b^.blackPieces .&. p /= mempty = Just C.Black
   | otherwise                      = Nothing
-  where p = bit pos
+  where p = fromSquare pos
 
 
 -- | the occupancy \Data.BitBoard\
@@ -224,7 +225,7 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
     go b sq = choice [ parserPiece, parserGap, parserSlash, parserSpace ]
       where parserPiece = do
               p <- oneOf "rnbqkpRNBQKP"
-              let sbb = bit sq
+              let sbb = fromSquare $ toEnum sq
               go (piecesByColour (charToColour p) <>~ sbb $ (piecesByType (charToPiece p) <>~ sbb) b) $ sq + 1
             parserGap   = liftM digitToInt (oneOf "12345678") >>= \g -> go b $ sq + g
             parserSlash = char '/' >> go b (sq - 16)
@@ -241,13 +242,13 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
                           , char 'Q' >> go' ((_1 <>~ fromCastle Long) p)
                           , return p
                           ]
-    transEnp sq = sq + 8 * if sq `shiftR` 3 == 2 then 1 else -1
+    transEnp sq = offset sq (if fromEnum (rank sq) == 2 then 1 else (-1))
 
 
 -- | calculates hash from scratch
 calcHash :: Board -> Word64
 calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
-                        | i <- [0 .. 63]
+                        | i <- squares
                         , pt <- [ pieceAt b i ], isJust pt
                         , pc <- [ pieceColourAt b i ], isJust pc
                         ]
@@ -262,10 +263,10 @@ prettyPrint b = do
      ++ " white castling : " ++ show (b^.whiteCastleRights)
      ++ " black castling : " ++ show (b^.blackCastleRights)
    putStrLn $ take 17 $ cycle ",-"
-   forM_ [ 7, 6 .. 0 ] $ \rank -> do
-      forM_ [ 0 .. 7 ] $ \file -> do
+   forM_ (reverse ranks) $ \r -> do
+      forM_ files $ \f -> do
          putChar '|'
-         putChar $ paint file rank $ case pieceAt b (rank * 8 + file) of
+         putChar $ paint f r $ case pieceAt b (toSquare f r) of
             Just C.Pawn   -> 'p'
             Just C.Knight -> 'n'
             Just C.Bishop -> 'b'
@@ -273,9 +274,9 @@ prettyPrint b = do
             Just C.Queen  -> 'q'
             Just C.King   -> 'k'
             Nothing       -> ' '
-      putStrLn $ "| " ++ show (7 + rank * 8 )
+      putStrLn "|"
    putStrLn $ take 17 $ cycle "'-"
    where
-      paint file rank = if b^.whitePieces .&. bit (rank * 8 + file) /= mempty
+      paint f r = if b^.whitePieces .&. fromSquare (toSquare f r) /= mempty
          then toUpper
          else id

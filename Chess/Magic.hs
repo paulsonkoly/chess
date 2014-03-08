@@ -41,8 +41,10 @@ import           Control.Monad.State
 import           Control.Monad.Loops
 import           Control.Monad.Random
 import           Control.Lens
+import           Data.Monoid
 
 import           Data.BitBoard
+import qualified Data.Bits as B (bit)
 import           Data.Square
 import qualified Data.Vector.Unboxed         as V
 import qualified Data.Vector.Unboxed.Mutable as VM
@@ -72,29 +74,27 @@ $(makeLenses ''Magic)
 -- be used in the engine - unless for testing. Therefore it's not exported.
 slidingAttackBB
    :: C.PieceType  -- ^ Rook or Bishop
-   -> Int          -- ^ position
+   -> Square       -- ^ position
    -> BitBoard     -- ^ occupancy
    -> BitBoard     -- ^ resulting board
 slidingAttackBB pt pos occ = fst $ flip execState (mempty, False) $ do
    let
-      file = pos .&. 7
-      rank = pos `shiftR` 3
       df   = deltas pt
    forM_ [ 0 .. 3 ] $ \d -> do
       assign _2 True
       forM_ [ 1 .. 7 ] $ \off -> do
          let
-            pos'  = pos + off * df d
-            hdist = abs $ file - (pos' .&. 7)
-            vdist = abs $ rank - (pos' `shiftR` 3)
+            pos'  = pos `offset` (off * df d)
+            hdist = hDist pos pos'
+            vdist = vDist pos pos'
             accept = case pt of
                C.Bishop -> hdist == vdist
                C.Rook   -> (hdist == 0 && vdist == off) || (vdist == 0 && hdist == off)
                _        -> undefined
          cont <- use _2
-         when (pos' >= 0 && pos' <= 63 && accept && cont) $ do
-            _1 <>= bit pos'
-            when (bit pos' .&. occ /= mempty) $ assign _2 False
+         when (fromEnum pos' >= 0 && fromEnum pos' <= 63 && accept && cont) $ do
+            _1 <>= fromSquare pos'
+            when (fromSquare pos' .&. occ /= mempty) $ assign _2 False
    where
       deltas :: C.PieceType -> Int -> Int
       deltas C.Bishop 0 = 7
@@ -108,12 +108,12 @@ slidingAttackBB pt pos occ = fst $ flip execState (mempty, False) $ do
       deltas _        _ = undefined
 
 
-slidingMaskBB :: C.PieceType -> Int -> BitBoard
+slidingMaskBB :: C.PieceType -> Square -> BitBoard
 slidingMaskBB pt pos =
    let
-      rank18   = rankBB 0 .|. rankBB 63
-      fileAH   = fileBB 0 .|. fileBB 7
-      edges    = (rank18 .&. complement (rankBB pos)) .|. (fileAH .&. complement (fileBB pos))
+      rank18   = rankBB firstRank .|. rankBB eighthRank
+      fileAH   = fileBB aFile .|. fileBB hFile
+      edges    = (rank18 .&. complement (rankBB $ rank pos)) .|. (fileAH .&. complement (fileBB $ file pos))
    in slidingAttackBB pt pos mempty .&. complement edges
 
 
@@ -129,7 +129,7 @@ magicIndex
   -> Int      -- ^ span/base
   -> BitBoard -- ^ occupancy
   -> Int      -- ^ magic index
-magicIndex msk mgc shft spn occ = spn + (((msk .&. occ) `mul` mgc) `shiftR'` shft)
+magicIndex msk mgc shft spn occ = spn + toInt (((msk .&. occ) `mul` mgc) `shiftR` shft)
 {-# INLINE magicIndex #-}
 
 
@@ -149,25 +149,25 @@ magic C.Queen sq occ  = magic' rookMagics sq occ .|. magic' bishopMagics sq occ
 -- | the sliding attack
 magic'
    :: Magic
-   -> Int      -- ^ position
+   -> Square   -- ^ position
    -> BitBoard -- ^ occupancy
    -> BitBoard -- ^ sliding attacks
-magic' m pos occ = let msk  = (m^.masks) `V.unsafeIndex` pos
-                       mgc  = (m^.magics) `V.unsafeIndex` pos
-                       shft = (m^.shifts) `V.unsafeIndex` pos
-                       spn  = (m^.spans) `V.unsafeIndex` pos
+magic' m pos occ = let msk  = (m^.masks) `V.unsafeIndex` fromEnum pos
+                       mgc  = (m^.magics) `V.unsafeIndex` fromEnum pos
+                       shft = (m^.shifts) `V.unsafeIndex` fromEnum pos
+                       spn  = (m^.spans) `V.unsafeIndex` fromEnum pos
                     in (m^.dat) `V.unsafeIndex` magicIndex msk mgc shft spn occ
 {-# INLINE magic' #-}
 
 
 -- | The dat size
 magicSize :: C.PieceType -> Int
-magicSize pt = sum [ bit $ popCount (slidingMaskBB pt pos) | pos <- [0 .. 63]]
+magicSize pt = sum [ B.bit $ popCount (slidingMaskBB pt pos) | pos <- squares ]
 
 
 -- | Calculates masks
 calcMasks :: C.PieceType -> BBVector
-calcMasks pt = V.fromList $ map (slidingMaskBB pt) [ 0 .. 63 ]
+calcMasks pt = V.fromList $ map (slidingMaskBB pt) squares
 
 
 -- | Calculates shifts from the masks
@@ -177,7 +177,7 @@ calcShifts = V.map (\i -> 64 - popCount i)
 
 -- | Calculates spans from the shifts
 calcSpans :: IVector -> IVector
-calcSpans = V.scanl' (+) 0 . V.map (bit . (64 -))
+calcSpans = V.scanl' (+) 0 . V.map (B.bit . (64 -))
 
 
 -- | Calculates dats from masks, shifts, spans and magics
@@ -198,7 +198,7 @@ calcDat pt msks shfts spns mgs = V.create $ do
          occ  = V.fromList $ ripple mask
      V.forM_ occ $ \occ' -> do
         let
-           ref = slidingAttackBB pt pos occ'
+           ref = slidingAttackBB pt (toEnum pos) occ'
            idx = magicIndex mask mgc shft base occ'
         VM.unsafeWrite v idx ref
    return v
@@ -209,10 +209,10 @@ lookForMagic pt msks shfts = V.create $ do
   v <- VM.new 64
   V.forM_ (V.enumFromN 0 64) $ \pos -> do
     let occ   = V.fromList $! ripple mask
-        ref   = V.map (slidingAttackBB pt pos) $! occ
+        ref   = V.map (slidingAttackBB pt $ toEnum pos) $! occ
         mask  = msks V.! pos
         shft  = shfts V.! pos
-        dsize = bit $ 64 - shft
+        dsize = B.bit $ 64 - shft
     d <- VM.new dsize
     search (mkStdGen 0) mask pos dsize occ ref shft v d
   return v
