@@ -74,4 +74,5 @@ Test-Suite perft
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
                        vector-th-unbox ==0.2.*,
-                       parsec          ==3.1.*
+                       parsec          ==3.1.*,
+                       optparse-applicative == 0.7.*

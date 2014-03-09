@@ -14,6 +14,7 @@ module Chess.Board
    ( Board
    -- * Constructors
    , fromFEN
+   , fen
    , initialBoard
    -- * Utilities
    , parserBoard
@@ -257,6 +258,18 @@ calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i
              `xor` zobrist (ZobristEnPassant $ b^.enPassant)
 
 
+
+paint :: C.PieceType -> C.Color -> Char
+paint pt c = let mods = if c == C.White then toUpper else id
+             in  mods $ case pt of
+               C.Pawn   -> 'p'
+               C.Knight -> 'n'
+               C.Bishop -> 'b'
+               C.Rook   -> 'r'
+               C.Queen  -> 'q'
+               C.King   -> 'k'
+
+
 prettyPrint :: Board -> IO ()
 prettyPrint b = do
    putStrLn $ "en Passant "  ++ show (b^.enPassant)
@@ -266,17 +279,32 @@ prettyPrint b = do
    forM_ (reverse ranks) $ \r -> do
       forM_ files $ \f -> do
          putChar '|'
-         putChar $ paint f r $ case pieceAt b (toSquare f r) of
-            Just C.Pawn   -> 'p'
-            Just C.Knight -> 'n'
-            Just C.Bishop -> 'b'
-            Just C.Rook   -> 'r'
-            Just C.Queen  -> 'q'
-            Just C.King   -> 'k'
-            Nothing       -> ' '
+         case pieceAt b (toSquare f r) of
+           Just pt -> putChar $ paint pt (fromJust $ pieceColourAt b (toSquare f r))
+           Nothing -> putChar ' '
       putStrLn "|"
    putStrLn $ take 17 $ cycle "'-"
-   where
-      paint f r = if b^.whitePieces .&. fromSquare (toSquare f r) /= mempty
-         then toUpper
-         else id
+
+
+fen :: Board -> String
+fen b = boardPrint (toSquare aFile eighthRank) (0::Int) ++ " " ++ whosNext ++ " " ++ castlings ++ " " ++ enp ++ " 0 0"
+  where boardPrint sq acc = let mpt = pieceAt b sq
+                            in case mpt of
+                              Just pt -> (if acc > 0
+                                         then show acc
+                                         else "") ++ [ paint pt (fromJust $ pieceColourAt b sq) ] ++ step sq 0
+                              Nothing -> step sq (acc + 1)
+        step sq acc = if file sq == hFile then
+                        (if acc > 0 then show acc else "")
+                        ++ if rank sq == firstRank
+                           then ""
+                           else "/" ++ boardPrint (toSquare aFile (pred $ rank sq)) 0
+                      else boardPrint (toSquare (succ $ file sq) (rank sq)) acc
+        whosNext  = if (b^.next) == C.White then "w" else "b"
+        castlings =     map (toUpper . paintCaslte) (toCastleList $ b^.whiteCastleRights)
+                    ++  map            paintCaslte  (toCastleList $ b^.blackCastleRights)
+        paintCaslte Short = 'k'
+        paintCaslte Long  = 'q'
+        enp = case b^.enPassant of
+          Just sq -> show $ toSquare (file sq) (if rank sq == fourthRank then thirdRank else sixthRank)
+          Nothing -> "-"

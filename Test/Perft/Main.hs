@@ -1,6 +1,8 @@
 module Main (main) where
 
 import           Data.Maybe
+import           Control.Monad
+import           Options.Applicative
 
 import           Test.HUnit
 
@@ -63,9 +65,37 @@ ruyLopezTests =
 
 allTests :: Test
 allTests = TestList [initialTests, ruyLopezTests]
-  
+
+
+data Config = Perft Board Int | Siblings Board
+
+readInt :: String -> Maybe Int
+readInt s = fst <$> listToMaybe (reads s)
+
+
+fenArgument :: Parser Board
+fenArgument = argument fromFEN (metavar "FEN")
+
+
+fenCommandParser :: Parser Config
+fenCommandParser = Perft <$> fenArgument <*> argument readInt (metavar "DEPTH")
+
+
+siblingCommandParser :: Parser Config
+siblingCommandParser = Siblings <$> fenArgument
+
+
+commandParser :: Parser (Maybe Config)
+commandParser = optional (subparser (
+     command "perft"    (info fenCommandParser     $ progDesc "Allows the user to specify a FEN & depth")
+  <> command "siblings" (info siblingCommandParser $ progDesc "Prints the siblings of the specified FEN")))
+
 
 main :: IO ()
 main = do
-  _ <- runTestTT allTests  
-  return ()
+  conf <- execParser ((info $ commandParser <**> helper) idm)
+  case conf of
+    Just (Perft b d)  -> print $ perft d b
+    Just (Siblings b) -> void $ mapM putStrLn [ fen $ makeMove m b | m <- moves b]
+    Nothing           -> void $ runTestTT allTests
+
