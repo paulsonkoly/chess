@@ -56,7 +56,7 @@ instance Read Square where
 
 
 hDiff :: Square -> Square -> Int
-hDiff a b = abs $ fromEnum (rank a) - fromEnum (rank b)
+hDiff a b = abs $ fromEnum (file a) - fromEnum (file b)
 
 
 hDist :: Square -> Square -> Int
@@ -64,7 +64,7 @@ hDist a b = abs $ hDiff a b
 
 
 vDiff :: Square -> Square -> Int
-vDiff a b = abs $ fromEnum (file a) - fromEnum (file b)
+vDiff a b = abs $ fromEnum (rank a) - fromEnum (rank b)
 
 
 vDist :: Square -> Square -> Int
