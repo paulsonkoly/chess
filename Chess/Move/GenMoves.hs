@@ -126,6 +126,7 @@ pawnCaptures :: Board -> [ Move ]
 pawnCaptures b = sortBy heuristics $ pawnMoves b (\_ t -> (fromSquare t .&. opponentsPieces b) /= mempty)
   where heuristics x y = pieceValue (fromJust $ y^.capturedPiece) `compare` pieceValue (fromJust $ x^.capturedPiece)
 
+
 pawnEnPassants :: Board -> [ Move ]
 pawnEnPassants b = do
   (f, t, enp) <- pawnEnPassantSquares b
@@ -251,7 +252,7 @@ castleMoves b chk = do
       (f, t)    = kingCastleMove (b^.next) side
       rt        = toEnum $ (fromEnum f + fromEnum t) `div` 2
       checkSqrs = toList $ checkCastleBB (b^.next) side
-  when chk $ guard $ fromSquare rt .&. kRays /= mempty
+  guard $ chk /= (fromSquare rt .&. kRays == mempty)
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
   guard $ not $ F.any (isAttacked b (b^.opponent)) checkSqrs
   return $ (castle .~ Just side) $ defaultMove f t C.King $ b^.next
