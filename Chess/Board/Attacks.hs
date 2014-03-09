@@ -1,7 +1,8 @@
-module Chess.Move.Attacks
+module Chess.Board.Attacks
        ( attacking
        , attackedBy
        , isAttacked
+       , inCheck
        ) where
 
 import           Control.Lens
@@ -9,8 +10,7 @@ import           Data.Monoid
 import           Data.Functor
 
 import qualified Chess as C
--- import           Chess.Move.Move
-import           Chess.Board
+import           Chess.Board.Board
 import           Chess.Magic
 import           Data.BitBoard
 import           Data.ChessTypes
@@ -60,3 +60,7 @@ isAttacked b c pos = any (/= mempty)
                      | pt <- [ C.Queen, C.Bishop, C.Rook, C.Knight, C.King, C.Pawn ]
                      ]
 
+
+inCheck :: Board -> C.Color -> Bool
+inCheck b c = let kP = head $ toList $ piecesOf b c C.King
+              in isAttacked b (opponent' c) kP

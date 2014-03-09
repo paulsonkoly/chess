@@ -4,7 +4,7 @@
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Data.BitBoard.Private
+module Data.BitBoard.BitBoard
    ( BitBoard
    -- * Various BitBoard values
    , neighbourFilesBB
@@ -40,6 +40,7 @@ import           Data.Bits.Extras
 import           Data.Monoid
 import qualified Data.Vector.Unboxed as V
 import           Data.Vector.Unboxed.Deriving
+import           Test.QuickCheck hiding ((.&.))
 
 import           Control.Monad
 import qualified Control.Monad.Random as R
@@ -48,7 +49,7 @@ import           Data.Square
 import qualified Chess as C
 
 
-newtype BitBoard = BitBoard Word64 deriving (Show, Eq, Bits)
+newtype BitBoard = BitBoard Word64 deriving (Show, Read, Eq, Bits)
 
 
 {- | The BitBoard forms a Monoid where mempty is the empty set
@@ -59,7 +60,6 @@ newtype BitBoard = BitBoard Word64 deriving (Show, Eq, Bits)
 instance Monoid BitBoard where
    mempty  = BitBoard 0
    mappend (BitBoard a) (BitBoard b) = BitBoard $ a .|. b
-
 
 derivingUnbox "BitBoard" [t| BitBoard -> Word64 |] [|(\(BitBoard b) -> b)|] [|BitBoard|]
 
@@ -109,6 +109,16 @@ toList (BitBoard b) = if b == 0
 fromList :: [ Square ] -> BitBoard
 fromList = foldr1 (<>) . map (bit . fromEnum)
 {-# INLINE fromList #-}
+
+
+instance Arbitrary BitBoard where
+  -- for more complexity we gradually add more bits
+  arbitrary = do
+    sqs <- listOf arbitrary
+    return $ mconcat $ map fromSquare sqs
+
+  -- Take a single square out
+  shrink b = [ b .&. complement (fromSquare p) | p <- toList b ]
 
 
 neighbourFilesBB :: File -> BitBoard

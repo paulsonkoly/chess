@@ -34,6 +34,8 @@
 module Chess.Magic
        ( Magic
        , magic
+       -- * properties
+       , prop_slidingAttack
        )
        where
 
@@ -42,6 +44,7 @@ import           Control.Monad.Loops
 import           Control.Monad.Random
 import           Control.Lens
 import           Data.Monoid
+import qualified Test.QuickCheck as Q hiding ((.&.))
 
 import           Data.BitBoard
 import qualified Data.Bits as B (bit)
@@ -250,3 +253,9 @@ makeMagic pt = execState (makeMagic' >> get) initDB
       shfts <- shifts <.= calcShifts msks
       spns  <- spans  <.= calcSpans shfts
       dat  .= calcDat pt msks shfts spns mgs
+
+
+prop_slidingAttack :: BitBoard -> Square -> Q.Property
+prop_slidingAttack b sq = Q.forAll (Q.elements [ C.Bishop, C.Rook ])
+                          $ \pt -> slidingAttackBB pt sq b == magic pt sq b
+

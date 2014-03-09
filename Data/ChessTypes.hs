@@ -18,7 +18,14 @@ import           Data.Monoid
 import qualified Chess as C
 
 
-newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Eq, Bounded)
+newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Read, Eq, Bounded)
+
+-- we will define our data type for this
+instance Read C.Color where
+  readsPrec _ s = case s of
+    "White"   -> [ (C.White, "") ]
+    "Black"   -> [ (C.Black, "") ]
+    _         -> []
 
 
 -- I have tried the tuple-gen package, but that doesn't define the right instance of

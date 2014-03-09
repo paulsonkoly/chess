@@ -21,7 +21,7 @@ import           Chess.Magic
 import           Data.ChessTypes
 import           Chess.Move.Move
 import           Chess.Move.ExecMove
-import           Chess.Move.Attacks
+import           Chess.Board.Attacks
 import           Chess.Board
 
 
@@ -285,7 +285,4 @@ check :: Board -> C.Color -> Move -> Bool
 check b c m = inCheck (makeMove m b) c
 
 
-inCheck :: Board -> C.Color -> Bool
-inCheck b c = let kP = head $ toList $ piecesOf b c C.King
-              in isAttacked b (opponent' c) kP
 

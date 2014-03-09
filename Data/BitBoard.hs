@@ -6,4 +6,4 @@ module Data.BitBoard
 -- so we can force the usage of functions that operate on Squares
 -- instead of Ints, but it's still convinient to use and, or, xor etc
 -- from the Bits instance
-import Data.BitBoard.Private as P hiding (isSigned, clearBit, complementBit, setBit, bit)
+import Data.BitBoard.BitBoard as P hiding (isSigned, clearBit, complementBit, setBit, bit)

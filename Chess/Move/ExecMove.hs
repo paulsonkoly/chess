@@ -11,7 +11,7 @@ import           Data.BitBoard
 import           Data.Square
 import           Data.ChessTypes
 import           Chess.Move.Move
-import           Chess.Board
+import           Chess.Board hiding (calcHash)
 import           Chess.Zobrist
 
 makeMove :: Move -> Board -> Board

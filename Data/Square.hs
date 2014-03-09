@@ -28,24 +28,29 @@ module Data.Square
 import           Data.Char
 import           Data.Bits
 import           Text.ParserCombinators.Parsec
+import           Test.QuickCheck hiding ((.&.))
 
 newtype Square = Square Int deriving (Eq)
 
 
 instance Bounded Square where
   minBound = Square 0
+  {-# INLINE minBound #-}
   maxBound = Square 63
+  {-# INLINE maxBound #-}
 
 
 instance Enum Square where
   toEnum i
     | 0 <= i && i <= 63 = Square i
     | otherwise         = error "Square out of range"
+  {-# INLINE toEnum #-}
   fromEnum (Square i)   = i
-
+  {-# INLINE fromEnum #-}
 
 instance Show Square where
   show s = [ 'a' .. 'h' ] !! fromEnum (file s) : [ [ '1' .. '8' ] !! fromEnum (rank s) ]
+  {-# INLINE show #-}
 
 
 -- This is a bit of hacky Read instance..
@@ -55,29 +60,40 @@ instance Read Square where
     Right sq -> [ ( sq, "") ]
 
 
+instance Arbitrary Square where
+  arbitrary = arbitraryBoundedEnum
+  {-# INLINE arbitrary #-}
+
+
 hDiff :: Square -> Square -> Int
 hDiff a b = abs $ fromEnum (file a) - fromEnum (file b)
+{-# INLINE hDiff #-}
 
 
 hDist :: Square -> Square -> Int
 hDist a b = abs $ hDiff a b
+{-# INLINE hDist #-}
 
 
 vDiff :: Square -> Square -> Int
 vDiff a b = abs $ fromEnum (rank a) - fromEnum (rank b)
+{-# INLINE vDiff #-}
 
 
 vDist :: Square -> Square -> Int
 vDist a b = abs $ vDiff a b
+{-# INLINE vDist #-}
 
 
 offset :: Square -> Int -> Square
 offset (Square a) b = Square $ a + b
+{-# INLINE offset #-}
 
 
 mirror :: Square -> Square
 mirror sq = toSquare (file sq) (m $ rank sq)
   where m (Rank a) = Rank $ 7- a
+{-# INLINE mirror #-}
 
 
 newtype File = File Int deriving (Eq)
@@ -85,14 +101,18 @@ newtype File = File Int deriving (Eq)
 
 instance Bounded File where
   minBound = File 0
+  {-# INLINE minBound #-}
   maxBound = File 7
+  {-# INLINE maxBound #-}
 
 
 instance Enum File where
   toEnum i
     | 0 <= i && i <= 7 = File i
     | otherwise        = error "File out of range"
+  {-# INLINE toEnum #-}
   fromEnum (File i)    = i
+  {-# INLINE fromEnum #-}
 
 
 aFile, bFile, cFile, dFile, eFile, fFile, gFile, hFile :: File
@@ -104,6 +124,14 @@ eFile = File 4
 fFile = File 5
 gFile = File 6
 hFile = File 7
+{-# INLINE aFile #-}
+{-# INLINE bFile #-}
+{-# INLINE cFile #-}
+{-# INLINE dFile #-}
+{-# INLINE eFile #-}
+{-# INLINE fFile #-}
+{-# INLINE gFile #-}
+{-# INLINE hFile #-}
 
 
 newtype Rank = Rank Int deriving (Eq)
@@ -111,14 +139,18 @@ newtype Rank = Rank Int deriving (Eq)
 
 instance Bounded Rank where
   minBound = Rank 0
+  {-# INLINE minBound #-}
   maxBound = Rank 7
+  {-# INLINE maxBound #-}
 
 
 instance Enum Rank where
   toEnum i
     | 0 <= i && i <= 7 = Rank i
     | otherwise        = error "Rank out of range"
+  {-# INLINE toEnum #-}
   fromEnum (Rank i)    = i
+  {-# INLINE fromEnum #-}
 
 
 firstRank, secondRank, thirdRank, fourthRank, fifthRank, sixthRank, seventhRank, eighthRank :: Rank
@@ -130,30 +162,44 @@ fifthRank   = Rank 4
 sixthRank   = Rank 5
 seventhRank = Rank 6
 eighthRank  = Rank 7
+{-# INLINE firstRank   #-}
+{-# INLINE secondRank  #-}
+{-# INLINE thirdRank   #-}
+{-# INLINE fourthRank  #-}
+{-# INLINE fifthRank   #-}
+{-# INLINE sixthRank   #-}
+{-# INLINE seventhRank #-}
+{-# INLINE eighthRank  #-}
 
 
 squares :: [ Square ]
 squares = [ minBound .. maxBound ]
+{-# INLINE squares #-}
 
 
 files :: [ File ]
 files = [ minBound .. maxBound ]
+{-# INLINE files #-}
 
 
 ranks :: [ Rank ]
 ranks = [ minBound .. maxBound ]
+{-# INLINE ranks #-}
 
 
 file :: Square -> File
 file (Square sq) = File $ sq .&. 7
+{-# INLINE file #-}
 
 
 rank :: Square -> Rank
 rank (Square sq) = Rank $ sq `shiftR` 3
+{-# INLINE rank #-}
 
 
 toSquare :: File -> Rank -> Square
 toSquare (File f) (Rank r) = Square $ r `shiftL` 3 + f
+{-# INLINE toSquare #-}
 
 
 parserSquare :: Parser Square
@@ -161,3 +207,4 @@ parserSquare = do
   f <- oneOf ['a' .. 'h']
   r <- oneOf ['1' .. '8']
   return $ Square $ 8 * (digitToInt r - 1) + (ord f - ord 'a')
+{-# INLINE parserSquare #-}
