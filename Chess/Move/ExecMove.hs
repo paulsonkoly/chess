@@ -56,9 +56,9 @@ promote bb pt = (pawns %~ xor bb) . (piecesByType pt %~ xor bb)
 
 
 rookCasltePos :: C.Color -> Castle -> (Square, Square)
-rookCasltePos C.White Long  = (toSquare aFile firstRank, toSquare cFile firstRank)
+rookCasltePos C.White Long  = (toSquare aFile firstRank, toSquare dFile firstRank)
 rookCasltePos C.White Short = (toSquare fFile firstRank, toSquare hFile firstRank)
-rookCasltePos C.Black Long  = (toSquare aFile eighthRank, toSquare cFile eighthRank)
+rookCasltePos C.Black Long  = (toSquare aFile eighthRank, toSquare dFile eighthRank)
 rookCasltePos C.Black Short = (toSquare fFile eighthRank, toSquare hFile eighthRank)
 {-# INLINE rookCasltePos #-}
 
