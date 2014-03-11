@@ -141,13 +141,12 @@ discoverer b = mconcat $ do
   pt <- [ C.Rook, C.Bishop, C.Queen ]
   let
     -- King casting rays ..
-    eKingRay = magic pt (eKingPos b) (occupancy b) .&. myPieces b
-    -- Now cast rays from my ray casters
-    pieceRay = mconcat $ do
-      p <- toList $ piecesOf b (b^.next) pt
-      return $ magic pt p (occupancy b)
-  -- where the 2 rays meet ..
-  return $ eKingRay .&. pieceRay
+    eKingRayNear = magic pt (eKingPos b) (occupancy b)
+    potentials   = eKingRayNear .&. myPieces b
+    -- Now remove that piece and try to hit the right piece type
+    casters      = magic pt (eKingPos b) (occupancy b `xor` potentials) .&. myPiecesOf b pt
+  caster <- toList casters
+  return $ magic pt caster $ occupancy b .&. potentials
 
 
 captures :: Board -> [ Move ]
