@@ -7,7 +7,7 @@ module Data.Square
        , squares
        , files
        , ranks
-       -- Files
+       -- * Files
        , aFile, bFile, cFile, dFile, eFile, fFile, gFile, hFile
        -- * Ranks
        , firstRank, secondRank, thirdRank, fourthRank, fifthRank, sixthRank, seventhRank, eighthRank
@@ -21,6 +21,7 @@ module Data.Square
        , vDiff
        , vDist
        , offset
+       -- * utilities
        , mirror
        , parserSquare
        ) where
@@ -30,6 +31,8 @@ import           Data.Bits
 import           Text.ParserCombinators.Parsec
 import           Test.QuickCheck hiding ((.&.))
 
+
+-- | The square represents one of the squares of a chess board
 newtype Square = Square Int deriving (Eq)
 
 
@@ -48,54 +51,64 @@ instance Enum Square where
   fromEnum (Square i)   = i
   {-# INLINE fromEnum #-}
 
+
+-- | like 'a1' or 'h8'
 instance Show Square where
   show s = [ 'a' .. 'h' ] !! fromEnum (file s) : [ [ '1' .. '8' ] !! fromEnum (rank s) ]
   {-# INLINE show #-}
 
 
--- This is a bit of hacky Read instance..
+-- | Opposite of Show ie parses 'a1' into a Square
 instance Read Square where
   readsPrec _ s = case parse parserSquare "" s of
     Left _  -> []
     Right sq -> [ ( sq, "") ]
 
 
+-- | Arbitrary but no shrink
 instance Arbitrary Square where
   arbitrary = arbitraryBoundedEnum
   {-# INLINE arbitrary #-}
 
 
+-- | Horizonatal difference (can be negative)
 hDiff :: Square -> Square -> Int
 hDiff a b = abs $ fromEnum (file a) - fromEnum (file b)
 {-# INLINE hDiff #-}
 
 
+-- | Horizonatal distance
 hDist :: Square -> Square -> Int
 hDist a b = abs $ hDiff a b
 {-# INLINE hDist #-}
 
 
+-- | Vertical difference (can be negative)
 vDiff :: Square -> Square -> Int
 vDiff a b = abs $ fromEnum (rank a) - fromEnum (rank b)
 {-# INLINE vDiff #-}
 
 
+-- | Vertical distance
 vDist :: Square -> Square -> Int
 vDist a b = abs $ vDiff a b
 {-# INLINE vDist #-}
 
 
+-- | Offset a square by an Int (in the enumeration of 'a1' .. 'h1' .. 'a8' .. 'h8'
 offset :: Square -> Int -> Square
 offset (Square a) b = Square $ a + b
 {-# INLINE offset #-}
 
 
+-- | Horizontal miror. Mirrors on the line between 4th and 5th ranks
 mirror :: Square -> Square
 mirror sq = toSquare (file sq) (m $ rank sq)
   where m (Rank a) = Rank $ 7- a
 {-# INLINE mirror #-}
 
 
+-- | A File on a Board
 newtype File = File Int deriving (Eq)
 
 
@@ -134,6 +147,7 @@ hFile = File 7
 {-# INLINE hFile #-}
 
 
+-- | A rank on a chess board
 newtype Rank = Rank Int deriving (Eq)
 
 
@@ -187,21 +201,25 @@ ranks = [ minBound .. maxBound ]
 {-# INLINE ranks #-}
 
 
+-- | Extracts the file from a square
 file :: Square -> File
 file (Square sq) = File $ sq .&. 7
 {-# INLINE file #-}
 
 
+-- | Extracts the Rank from a square
 rank :: Square -> Rank
 rank (Square sq) = Rank $ sq `shiftR` 3
 {-# INLINE rank #-}
 
 
+-- | Constructs a square from a file and a rank
 toSquare :: File -> Rank -> Square
 toSquare (File f) (Rank r) = Square $ r `shiftL` 3 + f
 {-# INLINE toSquare #-}
 
 
+-- | The parser for 'a1' etc notation
 parserSquare :: Parser Square
 parserSquare = do
   f <- oneOf ['a' .. 'h']
