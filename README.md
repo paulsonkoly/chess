@@ -28,3 +28,5 @@ Qxe5 Bd6 15. Qd4 Kc8 16. Bg5 h6 17. Bxf6 gxf6 18. O-O-O Bb8 19. Qe3 Qg8 20.
 Qc5+ Bc7 21. Nb5 Kb7 22. Qxc7+ Ka6 23. c4 Qf8 24. Rd6+ Qxd6 25. Nxd6 Rhb8 26.
 Ne4 Rb6 27. Nd4 Rab8 28. Nc5+ Ka5 29. Nc6# 1-0
 ~~~
+
+[![Build Status](https://travis-ci.org/phaul/chess.png?branch=master)](https://travis-ci.org/phaul/chess)
