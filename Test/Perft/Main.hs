@@ -3,6 +3,7 @@ module Main (main) where
 import           Data.Maybe
 import           Control.Monad
 import           Options.Applicative
+import           System.Exit
 
 import           Test.HUnit
 
@@ -39,7 +40,7 @@ testInitialPos n = perft n initialBoard ~?= initialPerftResult n
 
 initialTests :: Test
 initialTests  =
-  TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n | n <- [1 .. 5] ]
+  TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n | n <- [1 .. 4] ]
 
 
 ruyLopezPosition :: Board
@@ -53,6 +54,7 @@ ruyLopezPerftResult 3 =        41558
 ruyLopezPerftResult 4 =      1322527
 ruyLopezPerftResult 5 =     48184273
 ruyLopezPerftResult 6 =   1552389766
+ruyLopezPerftResult _ = undefined
 
 testRuyLopez :: Int -> Test
 testRuyLopez n = perft n ruyLopezPosition ~?= ruyLopezPerftResult n
@@ -60,7 +62,7 @@ testRuyLopez n = perft n ruyLopezPosition ~?= ruyLopezPerftResult n
 
 ruyLopezTests :: Test
 ruyLopezTests =
-  TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n | n <- [1 .. 6] ]
+  TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n | n <- [1 .. 4] ]
 
 
 allTests :: Test
@@ -97,5 +99,9 @@ main = do
   case conf of
     Just (Perft b d)  -> print $ perft d b
     Just (Siblings b) -> void $ mapM putStrLn [ fen $ makeMove m b | m <- moves b]
-    Nothing           -> void $ runTestTT allTests
+    Nothing           -> do
+      c <- runTestTT allTests
+      if cases c == tried c && failures c == 0 && errors c == 0
+        then exitSuccess
+        else exitFailure
 
