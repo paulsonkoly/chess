@@ -27,9 +27,8 @@ import           Chess.Board
 
 -- | Legal moves
 moves :: Board -> [ Move ]
-moves b = let cs = nub (simpleChecks b ++ discoveredChecks b) -- the nub is not strictly nesecarry, but outherwise we
-                   ++ pawnSimpleChecks b                      -- would break perft with double checks.
-                   ++ pawnDiscoveredChecks b
+moves b = let cs = nub (simpleChecks b ++ discoveredChecks b)            -- the nub is not strictly nesecarry, but outherwise we
+                   ++ nub (pawnSimpleChecks b ++ pawnDiscoveredChecks b) -- would break perft with double checks.
                    ++ castleChecks b
               ps = pawnCaptures b ++ pawnPromotions b ++ captures b ++ pawnEnPassants b
               ts = castleQuiet b
