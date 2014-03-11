@@ -105,7 +105,6 @@ Test-Suite move
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts
-                       -prof -auto-all -osuf=_p.a
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
