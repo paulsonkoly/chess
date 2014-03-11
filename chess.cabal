@@ -39,7 +39,7 @@ executable chess
                        lens            ==3.9.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.*,
+                       vector-th-unbox ==0.2.0.1,
                        MonadRandom     ==0.1.*,
                        monad-loops     ==0.4.*,
                        containers      ==0.5.*,
@@ -73,7 +73,7 @@ Test-Suite perft
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.*,
+                       vector-th-unbox ==0.2.0.1,
                        parsec          ==3.1.*,
                        optparse-applicative == 0.7.*,
                        QuickCheck      ==2.6.*
@@ -95,7 +95,7 @@ Test-Suite magic
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.*,
+                       vector-th-unbox ==0.2.0.1,
                        parsec          ==3.1.*,
                        QuickCheck      ==2.6.*
 Test-Suite move
@@ -116,7 +116,7 @@ Test-Suite move
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.*,
+                       vector-th-unbox ==0.2.0.1,
                        parsec          ==3.1.*,
                        QuickCheck      ==2.6.*
 
