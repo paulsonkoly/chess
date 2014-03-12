@@ -21,11 +21,11 @@ import           Data.BitBoard
 
 
 checkMate :: Board -> Bool
-checkMate b = inCheck b (b^.next) && not (anyMove b)
+checkMate b = inCheck b (b^.next) && null (moves b)
 
 
 staleMate :: Board -> Bool
-staleMate b = not (inCheck b (b^.next)) && not (anyMove b)
+staleMate b = not (inCheck b (b^.next)) && null (moves b)
 
 
 prop_MoveBoardAfter :: Board -> Bool

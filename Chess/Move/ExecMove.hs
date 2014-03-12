@@ -17,12 +17,11 @@ import           Chess.Zobrist
 makeMove :: Move -> Board -> Board
 makeMove m b = let (f, t) = (fromBB m, toBB m)
                    ft     = f `xor` t
-                   nxt    = b^.next
                    mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) C.Rook) (m^.castle)
                             . maybe id (\e -> putPiece (fromSquare e) (b^.opponent) C.Pawn)  (m^.enPassantTarget)
                             . maybe id (promote t) (m^.promotion)
                             . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
-                            . putPiece ft nxt (m^.piece)
+                            . putPiece ft (b^.next) (m^.piece)
                    cstlTrs = castleRightsByColour (b^.next) %~ intersect (castleRights m)
                    nxtTrs  = next %~ opponent'
                    enpTrs  = enPassant .~ if isDoubleAdvance m then Just (m^.to) else Nothing

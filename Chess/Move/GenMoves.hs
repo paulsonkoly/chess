@@ -1,7 +1,6 @@
 module Chess.Move.GenMoves
        ( moves
        , forcingMoves
-       , anyMove
        , check
        , inCheck
        ) where
@@ -48,11 +47,6 @@ forcingMoves b = let ms = simpleChecks b
                           ++ captures b
                           ++ pawnEnPassants b
                  in filter (not . check b (b^.next)) ms
-
--- | Is there a legal move on the Board?
-anyMove :: Board -> Bool
-anyMove b = F.any (not . null) [ pawnCaptureSquares b , pawnEnPassantSquares b , pawnAdvanceSquares b]
-            || F.any (not . null) [ captures b , castleChecks b , castleQuiet b , quietMoves b]
 
 
 -- | enemy king position
