@@ -13,8 +13,8 @@ module Chess.Move
 import           Control.Lens
 
 import           Chess.Move.Move as M
-import           Chess.Move.ExecMove as M
-import           Chess.Move.GenMoves as M
+import           Chess.Move.Execute as M
+import           Chess.Move.Generator as M
 
 import           Chess.Board
 import           Data.BitBoard

@@ -1,4 +1,4 @@
-module Chess.Move.ExecMove
+module Chess.Move.Execute
        ( makeMove
        ) where
 
@@ -87,30 +87,30 @@ calcHash b m = b^.hash
                `xor` zPutPiece (m^.from) (m^.colour) (m^.piece)
                `xor` zPutPiece (m^.to) (m^.colour) (m^.piece)
                `xor` capturedZ `xor` castleZ `xor` castleRMZ `xor` enPassantZ `xor` enPassantRMZ `xor` promotionZ `xor` flipSideZ
-               
+
   where flipSideZ = zobrist (ZobristSide C.White) `xor` zobrist (ZobristSide C.Black)
-        
+
         capturedZ = maybe 0 (zobrist . ZobristPiece (m^.to) (opponent' $ m^.colour)) (m^.capturedPiece)
-        
+
         castleZ   = zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights)) -- old castling rights
                     `xor` zobrist (ZobristCastlingRights newWhiteCastle newBlackCastle)
-                    
+
         newWhiteCastle = case m^.colour of
           C.White -> castleRights m `intersect` (b^.whiteCastleRights)
           C.Black -> b^.whiteCastleRights
-          
+
         newBlackCastle = case m^.colour of
           C.White -> b^.blackCastleRights
           C.Black -> castleRights m `intersect` (b^.blackCastleRights)
-          
+
         castleRMZ = maybe 0 (\c ->
                               zPutPiece (fst (rookCasltePos (b^.next) c))  (b^.next) C.Rook
                               `xor` zPutPiece (snd (rookCasltePos (b^.next) c)) (b^.next) C.Rook
                             ) (m^.castle)
-                    
+
         enPassantZ   = zobrist (ZobristEnPassant $ b^.enPassant)
                        `xor` zobrist (ZobristEnPassant $ if isDoubleAdvance m then Just (m^.to) else Nothing)
-                       
+
         enPassantRMZ = maybe 0 (\t -> zPutPiece t (opponent' (b^.next)) C.Pawn) (m^.enPassantTarget)
-        
+
         promotionZ   = maybe 0 (\p -> zPutPiece (m^.to) (m^.colour) C.Pawn `xor` zPutPiece (m^.to) (m^.colour) p) (m^.promotion)

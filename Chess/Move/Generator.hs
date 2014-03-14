@@ -1,4 +1,4 @@
-module Chess.Move.GenMoves
+module Chess.Move.Generator
        ( moves
        , forcingMoves
        , check
@@ -19,7 +19,7 @@ import           Data.BitBoard
 import           Chess.Magic
 import           Data.ChessTypes
 import           Chess.Move.Move
-import           Chess.Move.ExecMove
+import           Chess.Move.Execute
 import           Chess.Board.Attacks
 import           Chess.Board
 
@@ -58,12 +58,12 @@ eKingPos b = head $ toList $ piecesOf b (b^.opponent) C.King
 simpleChecks :: Board -> [ Move ]
 simpleChecks b = do
   pt <- [ C.Queen, C.Rook, C.Bishop, C.Knight ]
-  
+
   let kingMoves  = moveFun b pt (eKingPos b) .&. complement (myPieces b)
   f <- toList $ piecesOf b (b^.next) pt
   let pieceMoves = moveFun b pt f
       common = kingMoves .&. pieceMoves
-      
+
   -- common should be mempty most of the time, so we should
   -- short circuit the calcualtion from this point
   t <- toList common
@@ -71,7 +71,7 @@ simpleChecks b = do
   return
     $ (capturedPiece .~ pieceAt b t)
     $ defaultMove f t pt (b^.next)
-    
+
   where
     moveValid C.Knight f t = let hd = hDist f t
                                  vd = vDist f t
@@ -80,7 +80,7 @@ simpleChecks b = do
     moveValid C.Rook   f t = hDist f t == 0 || vDist f t == 0
     moveValid C.Queen  f t = moveValid C.Rook f t || moveValid C.Bishop f t
     moveValid _        _ _ = error "unexpected piece type"
-    
+
 
 -- | discovered checks (with any piece type except pawns)
 discoveredChecks :: Board -> [ Move ]
@@ -225,7 +225,7 @@ pawnAdvanceSquares b = do
       unblocked = complement $ foldl1 (<>) [ occupancy b `shift` direction (b^.next) (-8 * j) | j <- [ 1 .. step ] ]
   pawn <- toList $ myPawns .&. unblocked
   return (pawn, offset pawn $ step * direction (b^.next) 8, Nothing)
-  
+
 
 pawnEnPassantSquares :: Board -> [ (Square, Square, Maybe Square) ]
 pawnEnPassantSquares b = case b^.enPassant of
@@ -248,7 +248,7 @@ castleMoves b chk = do
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
   guard $ not $ F.any (isAttacked b (b^.opponent)) checkSqrs
   return $ (castle .~ Just side) $ defaultMove f t C.King $ b^.next
-  
+
 
 vacancyCastleBB :: C.Color -> Castle -> BitBoard
 vacancyCastleBB C.White Long  = mconcat [ fromSquare sq | sq <- [(toSquare bFile firstRank) .. (toSquare dFile firstRank)]]
@@ -276,6 +276,3 @@ kingCastleMove C.Black Short = (toSquare eFile eighthRank, toSquare gFile eighth
 
 check :: Board -> C.Color -> Move -> Bool
 check b c m = inCheck (makeMove m b) c
-
-
-
