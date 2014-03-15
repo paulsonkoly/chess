@@ -1,8 +1,7 @@
 module Chess.Move.Generator
        ( moves
        , forcingMoves
-       , check
-       , inCheck
+       , anyMove
        ) where
 
 import           Data.Monoid
@@ -29,10 +28,11 @@ moves :: Board -> [ Move ]
 moves b = let cs = nub (simpleChecks b ++ discoveredChecks b)            -- the nub is not strictly nesecarry, but outherwise we
                    ++ nub (pawnSimpleChecks b ++ pawnDiscoveredChecks b) -- would break perft with double checks.
                    ++ castleChecks b
-              ps = pawnCaptures b ++ pawnPromotions b ++ captures b ++ pawnEnPassants b
+              ps = pawnCapturesSorted b ++ pawnPromotions b ++ capturesSorted b ++ pawnEnPassants b
               ts = castleQuiet b
-              nq = quietMoves b ++ pawnQuietMoves b
-          in filter (not . check b (b^.next)) $ cs ++ (ps \\ cs) ++ ts ++ (nq \\ cs)
+              nq = quietMovesSorted b ++ pawnQuietMovesSorted b
+              inc = inCheckWithNoFriendly b (b^.next)
+          in filter (not . check b (b^.next) inc) $ cs ++ (ps \\ cs) ++ ts ++ (nq \\ cs)
 
 
 -- | Checks, captures and promotions
@@ -42,11 +42,30 @@ forcingMoves b = let ms = simpleChecks b
                           ++ pawnSimpleChecks b
                           ++ pawnDiscoveredChecks b
                           ++ castleChecks b
-                          ++ pawnCaptures b
+                          ++ pawnCapturesSorted b
                           ++ pawnPromotions b
-                          ++ captures b
+                          ++ capturesSorted b
                           ++ pawnEnPassants b
-                 in filter (not . check b (b^.next)) ms
+                     inc = inCheckWithNoFriendly b (b^.next)
+                 in filter (not . check b (b^.next) inc) ms
+
+
+
+-- | Is there a legal move?
+anyMove :: Board -> Bool
+anyMove b = let ok  = any (not . check b (b^.next) True)
+            in ok (pawnQuietMoves b)            -- most frequent first
+               || ok (quietMoves b)
+               || ok (captures b)
+               || ok (pawnCaptures b)
+               || ok (castleQuiet b)
+               || ok (simpleChecks b)
+               || ok (pawnSimpleChecks b)
+               || ok (discoveredChecks b)
+               || ok (pawnDiscoveredChecks b)
+               || ok (castleChecks b)
+               || ok (pawnEnPassants b)
+               || ok (pawnPromotions b)
 
 
 -- | enemy king position
@@ -116,7 +135,12 @@ pawnPromotions b = let opSecond = rankBB $ case b^.next of
 
 
 pawnCaptures :: Board -> [ Move ]
-pawnCaptures b = sortBy heuristics $ pawnMoves b (\_ t -> (fromSquare t .&. opponentsPieces b) /= mempty)
+pawnCaptures b = pawnMoves b (\_ t -> (fromSquare t .&. opponentsPieces b) /= mempty)
+
+
+
+pawnCapturesSorted :: Board -> [ Move ]
+pawnCapturesSorted = sortBy heuristics . pawnCaptures
   where heuristics x y = pieceValue (fromJust $ y^.capturedPiece) `compare` pieceValue (fromJust $ x^.capturedPiece)
 
 
@@ -143,12 +167,20 @@ discoverer b = mconcat $ do
 
 
 captures :: Board -> [ Move ]
-captures b = sortBy heuristics $ normMoveGen b (opponentsPieces b)
+captures b = normMoveGen b (opponentsPieces b)
+
+
+capturesSorted :: Board -> [ Move ]
+capturesSorted = sortBy heuristics . captures
   where heuristics x y = pieceValue (fromJust $ y^.capturedPiece) `compare` pieceValue (fromJust $ x^.capturedPiece)
 
 
 quietMoves :: Board -> [ Move ]
-quietMoves b = sortBy heuristics $ normMoveGen b (vacated b)
+quietMoves b = normMoveGen b (vacated b)
+
+
+quietMovesSorted :: Board -> [ Move ]
+quietMovesSorted = sortBy heuristics . quietMoves
   where heuristics x y = moveValue y `compare` moveValue x
 
 
@@ -157,9 +189,14 @@ castleQuiet b = castleMoves b False
 
 
 pawnQuietMoves :: Board -> [ Move ]
-pawnQuietMoves b = sortBy heuristics $ do
+pawnQuietMoves b = do
   (f, t, _) <- pawnAdvanceSquares b
   concatMap promote $ return $ defaultMove f t C.Pawn (b^.next)
+
+
+
+pawnQuietMovesSorted :: Board -> [ Move ]
+pawnQuietMovesSorted = sortBy heuristics . pawnQuietMoves
   where heuristics x y = moveValue y `compare` moveValue x
 
 
@@ -274,5 +311,5 @@ kingCastleMove C.Black Short = (toSquare eFile eighthRank, toSquare gFile eighth
 {-# INLINE kingCastleMove #-}
 
 
-check :: Board -> C.Color -> Move -> Bool
-check b c m = inCheck (makeMove m b) c
+check :: Board -> C.Color -> Bool -> Move -> Bool
+check b c inc m = (inc || m^.piece == C.King) && inCheck (makeMove m b) c
