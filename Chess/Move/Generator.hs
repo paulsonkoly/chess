@@ -161,7 +161,7 @@ discoverer b = mconcat $ do
     -- Now remove that piece and try to hit the right piece type
     casters      = magic pt (eKingPos b) (occupancy b `xor` potentials) .&. myPiecesOf b pt
   caster <- toList casters
-  return $ magic pt caster $ occupancy b .&. potentials
+  return $ potentials .&. magic pt caster (occupancy b)
 
 
 captures :: Board -> [ Move ]
