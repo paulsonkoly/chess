@@ -81,7 +81,6 @@ negaScout d = do
   return r
 
 
-
 withMove :: Move -> Search a -> Search a
 withMove m ac = do
   old <- use board
@@ -90,6 +89,7 @@ withMove m ac = do
   board .= old
   return r
 {-# INLINE withMove #-}
+
 
 tryTransPosCache
   :: Int -> Int -> Int -> Int                                        -- ^ depth / alpha / beta / colour
@@ -165,6 +165,7 @@ iterateMoves ml d alpha beta rep ac = do
 percentage :: Int -> Int -> Int
 percentage a b = if a == 0 then 0 else 100 * b `div` a
 
+
 hitRatio :: SearchState -> Int
 hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
 
@@ -196,6 +197,9 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alph
                                   else ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
             return $ r^.line
 
+
+checkMate :: Board -> Bool
+checkMate b = inCheck b (b^.next) && not (anyMove b)
             
 
 quiscene :: Int -> Int -> Int -> Search SearchResult

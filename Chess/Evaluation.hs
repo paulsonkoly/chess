@@ -25,10 +25,11 @@ diffBB a b = popCount a - popCount b
 
 
 evaluate :: Board -> Int
-evaluate b
-  | checkMate b = direction (b^.next) (-3000)
-  | staleMate b = 0
-  | otherwise   = let material = sum [ w * (numberOf b C.White pt - numberOf b C.Black pt)
+evaluate b = if not (anyMove b)
+             then if inCheck b (b^.next)
+                  then direction (b^.next) (-3000)
+                  else 0
+             else let material = sum [ w * (numberOf b C.White pt - numberOf b C.Black pt)
                                      | (w, pt) <- weights
                                      ]
                   in material + sum [ f b C.White - f b C.Black

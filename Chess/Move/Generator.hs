@@ -54,16 +54,14 @@ forcingMoves b = let ms = simpleChecks b
 -- | Is there a legal move?
 anyMove :: Board -> Bool
 anyMove b = let ok  = any (not . check b (b^.next) True)
-            in ok (pawnQuietMoves b)            -- most frequent first
-               || ok (quietMoves b)
+            in ok (quietMoves b)
+               || ok (pawnQuietMoves b)            -- most frequent first
                || ok (captures b)
                || ok (pawnCaptures b)
-               || ok (castleQuiet b)
                || ok (simpleChecks b)
                || ok (pawnSimpleChecks b)
                || ok (discoveredChecks b)
                || ok (pawnDiscoveredChecks b)
-               || ok (castleChecks b)
                || ok (pawnEnPassants b)
                || ok (pawnPromotions b)
 
@@ -312,4 +310,5 @@ kingCastleMove C.Black Short = (toSquare eFile eighthRank, toSquare gFile eighth
 
 
 check :: Board -> C.Color -> Bool -> Move -> Bool
-check b c inc m = (inc || m^.piece == C.King) && inCheck (makeMove m b) c
+check b c inc m = (inc || m^.piece == C.King) && inCheck (makeMoveSimplified m b) c
+{-# INLINE check #-}

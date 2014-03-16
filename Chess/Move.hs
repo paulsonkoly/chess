@@ -1,7 +1,5 @@
 module Chess.Move
-   ( checkMate
-   , staleMate
-   , module M
+   ( module M
    -- * properties
    , prop_MoveBoardAfter
    , prop_numberOfPieces
@@ -18,14 +16,6 @@ import           Chess.Move.Generator as M
 
 import           Chess.Board
 import           Data.BitBoard
-
-
-checkMate :: Board -> Bool
-checkMate b = inCheck b (b^.next) && not (anyMove b)
-
-
-staleMate :: Board -> Bool
-staleMate b = not (inCheck b (b^.next)) && not (anyMove b)
 
 
 prop_MoveBoardAfter :: Board -> Bool

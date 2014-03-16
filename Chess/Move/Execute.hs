@@ -1,5 +1,6 @@
 module Chess.Move.Execute
        ( makeMove
+       , makeMoveSimplified
        ) where
 
 import           Control.Lens hiding (to, from)
@@ -14,19 +15,26 @@ import           Chess.Move.Move
 import           Chess.Board hiding (calcHash)
 import           Chess.Zobrist
 
+
+-- | makes a move on the board
 makeMove :: Move -> Board -> Board
-makeMove m b = let (f, t) = (fromBB m, toBB m)
-                   ft     = f `xor` t
-                   mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) C.Rook) (m^.castle)
-                            . maybe id (\e -> putPiece (fromSquare e) (b^.opponent) C.Pawn)  (m^.enPassantTarget)
-                            . maybe id (promote t) (m^.promotion)
-                            . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
-                            . putPiece ft (b^.next) (m^.piece)
-                   cstlTrs = castleRightsByColour (b^.next) %~ intersect (castleRights m)
+makeMove m b = let cstlTrs = castleRightsByColour (b^.next) %~ intersect (castleRights m)
                    nxtTrs  = next %~ opponent'
                    enpTrs  = enPassant .~ if isDoubleAdvance m then Just (m^.to) else Nothing
                    hshTrs  = hash .~ calcHash b m
-               in hshTrs $ enpTrs $ nxtTrs $ cstlTrs $ mvsTrs b
+               in hshTrs $ enpTrs $ nxtTrs $ cstlTrs $ makeMoveSimplified m b
+
+
+-- | same as makeMove except faster but only update where the pieces are
+makeMoveSimplified :: Move -> Board -> Board
+makeMoveSimplified m b = let (f, t) = (fromBB m, toBB m)
+                             ft     = f `xor` t
+                             mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) C.Rook) (m^.castle)
+                                      . maybe id (\e -> putPiece (fromSquare e) (b^.opponent) C.Pawn) (m^.enPassantTarget)
+                                      . maybe id (promote t) (m^.promotion)
+                                      . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
+                                      . putPiece ft (b^.next) (m^.piece)
+                         in mvsTrs b
 
 
 fromBB :: Move -> BitBoard

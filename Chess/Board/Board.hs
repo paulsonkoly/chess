@@ -51,8 +51,6 @@ module Chess.Board.Board
    )
    where
 
--- import           Control.Monad.State
--- import           Data.Functor
 import           Control.Monad
 import           Control.Lens
 import           Data.Monoid
@@ -60,11 +58,8 @@ import           Data.Char
 import           Data.Word
 import           Data.Maybe
 
--- 
-
 import qualified Chess     as C
 
--- import           Chess.Zobrist
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes

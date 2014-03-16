@@ -66,6 +66,7 @@ derivingUnbox "BitBoard" [t| BitBoard -> Word64 |] [|(\(BitBoard b) -> b)|] [|Bi
 
 fromSquare :: Square -> BitBoard
 fromSquare = BitBoard . bit . fromEnum
+{-# INLINE fromSquare #-}
 
 
 -- | mulitplication needed in magic index calculations
