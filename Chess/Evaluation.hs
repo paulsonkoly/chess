@@ -34,7 +34,7 @@ evaluate b = if not (anyMove b)
                                      ]
                   in material + sum [ f b C.White - f b C.Black
                                     | f <- [ evaluateRookPosition
---                                           , evaluateKingSafety
+                                           , evaluateKingSafety
 --                                         , evaluatePins
                                            , evaluateBishopPosition
                                            , evaluateKnightPosition
@@ -43,22 +43,16 @@ evaluate b = if not (anyMove b)
                                     ]
 
 
-{-evaluateKingSafety :: Board -> C.Color -> Int
+evaluateKingSafety :: Board -> C.Color -> Int
 evaluateKingSafety b col = let kingSq = head $ BB.toList $ piecesOf b col C.King
-                               kfQ    = kingSq .&. 4
-                               krQ    = kingSq .&. 32
-                               quadrant  = mconcat [fileBB i | i <- [kfQ .. kfQ + 3]] .&. mconcat [rankBB i | i <- [krQ .. krQ + 3]]
-                               neighbour = kingAttackBB kingSq .|. piecesOf b col C.King
+                               quadrant = neighbourFilesBB (file kingSq) .&. neighbourRanksBB (rank kingSq)
                                attackingKnights = popCount $ quadrant .&. piecesOf b (opponent' col) C.Knight
-                               defendingPawns   = popCount $ neighbour .&. piecesOf b col C.Pawn
-                               noMyPieces       = removePieces b col
-                               rayAttacks       = popCount $ mconcat $ concat
-                                                  [ map snd $ attacking pt noMyPieces (opponent' col)
-                                                  | pt <- [ C.Queen, C.Rook, C.Bishop ]
-                                                  ]
-                           in if True -- endGame b || opening b
-                              then 0
-                              else (defendingPawns - attackingKnights - rayAttacks) `div` 2-}
+                               defendingPawns = popCount $ kingAttackBB kingSq .&. piecesOf b col C.Pawn
+                               rayAttacks = popCount $! mconcat
+                                            [ piecesOf b (opponent' col) pt .&. magic pt kingSq mempty
+                                            | pt <- [ C.Queen, C.Rook, C.Bishop ]
+                                            ]
+                           in (defendingPawns - attackingKnights - rayAttacks) `div` 2
 
 
 evaluatePins :: Board -> C.Color -> Int
@@ -87,11 +81,14 @@ evaluateRookPosition b col = let mySeventh = if col == C.White then seventhRank 
 
 
 evaluateBishopPosition :: Board -> C.Color -> Int
-evaluateBishopPosition b col = evalFor darkSquares + evalFor lightSquares
-  where evalFor fld = let myBishop = fld .&. piecesOf b col C.Bishop
-                          enemy    = mconcat [ fld `shift` (direction col 8 * i) | i <- [1 .. 6]]
-                          myPawns  = enemy .&. piecesOf b col C.Pawn
-                      in  8 - sum [ popCount myPawns | _ <- BB.toList myBishop ]    
+evaluateBishopPosition b col = let blockingPawns = sum [ (-1) * popCount (sqrs .&. piecesOf b col C.Pawn)
+                                                       | sqrs <- [ lightSquares, darkSquares ]
+                                                       , mempty /= sqrs .&. piecesOf b col C.Bishop
+                                                       ]
+                                   bishopPair    = if (lightSquares .&. piecesOf b col C.Bishop) /= mempty
+                                                      && (darkSquares .&. piecesOf b col C.Bishop) /= mempty
+                                                   then 5 else 0
+                               in (blockingPawns `div` 2) + bishopPair
 
 
 evaluateKnightPosition :: Board -> C.Color -> Int

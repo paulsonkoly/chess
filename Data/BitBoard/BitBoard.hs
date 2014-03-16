@@ -8,6 +8,7 @@ module Data.BitBoard.BitBoard
    ( BitBoard
    -- * Various BitBoard values
    , neighbourFilesBB
+   , neighbourRanksBB
    , knightAttackBB
    , kingAttackBB
    , rankBB
@@ -59,7 +60,9 @@ newtype BitBoard = BitBoard Word64 deriving (Show, Read, Eq, Bits)
 -}
 instance Monoid BitBoard where
    mempty  = BitBoard 0
+   {-# INLINE mempty #-}
    mappend (BitBoard a) (BitBoard b) = BitBoard $ a .|. b
+   {-# INLINE mappend #-}
 
 derivingUnbox "BitBoard" [t| BitBoard -> Word64 |] [|(\(BitBoard b) -> b)|] [|BitBoard|]
 
@@ -77,6 +80,7 @@ mul :: BitBoard -> BitBoard -> BitBoard
 
 toInt :: BitBoard -> Int
 toInt (BitBoard a) = fromIntegral a
+{-# INLINE toInt #-}
 
 
 -- | Generates the bitcombinations for a specified mask
@@ -105,6 +109,7 @@ toList (BitBoard b) = if b == 0
    else
       let bp = fromIntegral $ trailingZeros b
       in  toEnum bp : toList (BitBoard $ b `xor` bit bp)
+{-# INLINE toList #-}
 
 
 fromList :: [ Square ] -> BitBoard
@@ -134,6 +139,20 @@ neighbourFilesBB = neighbourFilesBB' . fromEnum
     neighbourFilesBB' 6 = BitBoard 0xf0f0f0f0f0f0f0f0
     neighbourFilesBB' 7 = BitBoard 0xe0e0e0e0e0e0e0e0
     neighbourFilesBB'  _ = error "file out of range"
+
+
+neighbourRanksBB :: Rank -> BitBoard
+neighbourRanksBB = neighbourRanksBB' . fromEnum
+  where
+    neighbourRanksBB' 0 = BitBoard 0x0000000000ffffff
+    neighbourRanksBB' 1 = BitBoard 0x00000000ffffffff
+    neighbourRanksBB' 2 = BitBoard 0x000000ffffffffff
+    neighbourRanksBB' 3 = BitBoard 0x0000ffffffffff00
+    neighbourRanksBB' 4 = BitBoard 0x00ffffffffff0000
+    neighbourRanksBB' 5 = BitBoard 0xffffffffff000000
+    neighbourRanksBB' 6 = BitBoard 0xffffffff00000000
+    neighbourRanksBB' 7 = BitBoard 0xffffff0000000000
+    neighbourRanksBB'  _ = error "rank out of range"
 
 
 lightSquares :: BitBoard
