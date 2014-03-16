@@ -108,7 +108,7 @@ piecesByColour
    -> Lens' Board BitBoard -- ^ Lens
 piecesByColour C.Black = blackPieces
 piecesByColour C.White = whitePieces
-
+{-# INLINE piecesByColour #-}
 
 -- | the BitBoard Lens corresponding to the given PieceType
 piecesByType
@@ -120,6 +120,7 @@ piecesByType C.Knight = knights
 piecesByType C.Bishop = bishops
 piecesByType C.Queen  = queens
 piecesByType C.King   = kings
+{-# INLINE piecesByType #-}
 
 
 -- | Castle rights lens corresponding to the given colour
@@ -128,7 +129,7 @@ castleRightsByColour
   -> Lens' Board CastlingRights
 castleRightsByColour C.White = whiteCastleRights
 castleRightsByColour C.Black = blackCastleRights
-
+{-# INLINE castleRightsByColour #-}
 
 
 -- | The piece type at the given position
@@ -176,6 +177,7 @@ opponentsPieces b = b^.piecesByColour (b^.opponent)
 -- | pieces of a player of a specific type
 piecesOf :: Board -> C.Color -> C.PieceType -> BitBoard
 piecesOf b colour pt = (b^.piecesByType pt) .&. (b^.piecesByColour colour)
+{-# INLINE piecesOf #-}
 
 
 myPiecesOf :: Board -> C.PieceType -> BitBoard
