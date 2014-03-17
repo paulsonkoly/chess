@@ -48,6 +48,8 @@ module Chess.Board.Board
    , myPiecesOf
    , opponentsPiecesOf
    , numberOf
+   -- * Others
+   , calcHash
    )
    where
 
@@ -63,6 +65,7 @@ import qualified Chess     as C
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
+import           Chess.Zobrist
 
 
 data Board = Board
@@ -231,14 +234,26 @@ fen b = boardPrint (toSquare aFile eighthRank) (0::Int) ++ " " ++ whosNext ++ " 
                         (if acc > 0 then show acc else "")
                         ++ if rank sq == firstRank
                            then ""
-                           else "/" ++ boardPrint (toSquare aFile (pred $ rank sq)) 0
+                           else '/' : boardPrint (toSquare aFile (pred $ rank sq)) 0
                       else boardPrint (toSquare (succ $ file sq) (rank sq)) acc
         whosNext  = if (b^.next) == C.White then "w" else "b"
-        castlings =     map (toUpper . paintCaslte) (toCastleList $ b^.whiteCastleRights)
-                    ++  map            paintCaslte  (toCastleList $ b^.blackCastleRights)
+        castlings = let str = map (toUpper . paintCaslte) (toCastleList $ b^.whiteCastleRights)
+                              ++ map paintCaslte  (toCastleList $ b^.blackCastleRights)
+                    in if str == "" then "-" else str
         paintCaslte Short = 'k'
         paintCaslte Long  = 'q'
         enp = case b^.enPassant of
           Just sq -> show $ toSquare (file sq) (if rank sq == fourthRank then thirdRank else sixthRank)
           Nothing -> "-"
 
+
+-- | calculates hash from scratch
+calcHash :: Board -> Word64
+calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
+                        | i <- squares
+                        , pt <- [ pieceAt b i ], isJust pt
+                        , pc <- [ pieceColourAt b i ], isJust pc
+                        ]
+             `xor` zobrist (ZobristSide $ b^.next)
+             `xor` zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights))
+             `xor` zobrist (ZobristEnPassant $ b^.enPassant)

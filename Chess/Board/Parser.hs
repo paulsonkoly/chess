@@ -1,6 +1,5 @@
 module Chess.Board.Parser
        ( parserBoard
-       , calcHash
        ) where
 
 import           Control.Lens
@@ -18,20 +17,7 @@ import           Data.Square
 import           Data.BitBoard
 import           Data.ChessTypes
 import           Chess.Board.Board
-import           Chess.Zobrist
 import qualified Chess as C
-
-
--- | calculates hash from scratch
-calcHash :: Board -> Word64
-calcHash b = foldr1 xor [ zobrist $ ZobristPiece i (fromJust $ pieceColourAt b i) (fromJust $ pieceAt b i) 
-                        | i <- squares
-                        , pt <- [ pieceAt b i ], isJust pt
-                        , pc <- [ pieceColourAt b i ], isJust pc
-                        ]
-             `xor` zobrist (ZobristSide $ b^.next)
-             `xor` zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights))
-             `xor` zobrist (ZobristEnPassant $ b^.enPassant)
 
 
 parserBoard :: Parser Board

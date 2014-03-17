@@ -33,18 +33,17 @@ instance Q.Arbitrary Board where
     wpcs <- liftM (.&. occ) arbitrary
     let bpcs = occ .&. complement wpcs
     n <- Q.elements [ C.Black, C.White ]
-    return
-      $ (whitePieces .~ wpcs .|. wk)
-      $ (blackPieces .~ bpcs .|. bk)
-      $ (rooks       .~ rs)
-      $ (knights     .~ ns)
-      $ (bishops     .~ bs)
-      $ (queens      .~ qs)
-      $ (kings       .~ wk .|. bk)
-      $ (pawns       .~ ps)
-      $ (next        .~ n)
-      emptyBoard
-
+    let b =   (whitePieces .~ wpcs .|. wk)
+            $ (blackPieces .~ bpcs .|. bk)
+            $ (rooks       .~ rs)
+            $ (knights     .~ ns)
+            $ (bishops     .~ bs)
+            $ (queens      .~ qs)
+            $ (kings       .~ wk .|. bk)
+            $ (pawns       .~ ps)
+            $ (next        .~ n)
+            emptyBoard
+    return $ (hash .~ calcHash b) b
 
     where removing f = liftM (.&. complement f) arbitrary
 

@@ -5,6 +5,7 @@ module Chess.Board
        -- * Properties
        , prop_Board
        , prop_BoardKingNum
+       , prop_FEN
        ) where
 
 import           Control.Lens
@@ -36,3 +37,7 @@ prop_Board b = b^.whitePieces .|. b^.blackPieces == b^.kings .|. b^.queens .|. b
 
 prop_BoardKingNum :: Board -> Bool
 prop_BoardKingNum b = popCount (b^.kings) == 2
+
+
+prop_FEN :: Board -> Bool
+prop_FEN b = Just b == fromFEN (fen b)
