@@ -77,67 +77,28 @@ Test-Suite perft
                        parsec          ==3.1.*,
                        optparse-applicative == 0.7.*,
                        QuickCheck      ==2.6.*
-Test-Suite magic
-  type:                exitcode-stdio-1.0
-  main-is:             Test/Magic/Main.hs
-  hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
-                       -funbox-strict-fields
-                       -rtsopts
-  build-depends:       base            ==4.6.*,
-                       mtl             ==2.1.*,
-                       ghc-prim,
-                       HUnit           ==1.2.*,
-                       monad-loops     ==0.4.*,
-                       lens            ==3.9.*,
-                       chesshs         ==0.1.1,
-                       MonadRandom     ==0.1.*,
-                       containers      ==0.5.*,
-                       bits-extras     ==0.1.*,
-                       vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
-                       parsec          ==3.1.*,
-                       QuickCheck      ==2.6.*
-Test-Suite move
-  type:                exitcode-stdio-1.0
-  main-is:             Test/Move/Main.hs
-  hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
-                       -funbox-strict-fields
-                       -rtsopts
-  build-depends:       base            ==4.6.*,
-                       mtl             ==2.1.*,
-                       ghc-prim,
-                       HUnit           ==1.2.*,
-                       monad-loops     ==0.4.*,
-                       lens            ==3.9.*,
-                       chesshs         ==0.1.1,
-                       MonadRandom     ==0.1.*,
-                       containers      ==0.5.*,
-                       bits-extras     ==0.1.*,
-                       vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
-                       parsec          ==3.1.*,
-                       QuickCheck      ==2.6.*
-Test-Suite board
-  type:                exitcode-stdio-1.0
-  main-is:             Test/Board/Main.hs
-  hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
-                       -funbox-strict-fields
-                       -rtsopts
-  build-depends:       base            ==4.6.*,
-                       mtl             ==2.1.*,
-                       ghc-prim,
-                       HUnit           ==1.2.*,
-                       monad-loops     ==0.4.*,
-                       lens            ==3.9.*,
-                       chesshs         ==0.1.1,
-                       MonadRandom     ==0.1.*,
-                       containers      ==0.5.*,
-                       bits-extras     ==0.1.*,
-                       vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
-                       parsec          ==3.1.*,
-                       QuickCheck      ==2.6.*
 
+
+Test-Suite suite
+  type:                exitcode-stdio-1.0
+  main-is:             Test/Suite/Main.hs
+  hs-source-dirs:      .
+  ghc-options:         -Wall -fwarn-tabs -O2
+                       -funbox-strict-fields
+                       -rtsopts
+  build-depends:       base            ==4.6.*,
+                       mtl             ==2.1.*,
+                       ghc-prim,
+                       HUnit           ==1.2.*,
+                       monad-loops     ==0.4.*,
+                       lens            ==3.9.*,
+                       chesshs         ==0.1.1,
+                       MonadRandom     ==0.1.*,
+                       containers      ==0.5.*,
+                       bits-extras     ==0.1.*,
+                       vector          ==0.10.*,
+                       vector-th-unbox ==0.2.0.1,
+                       parsec          ==3.1.*,
+                       QuickCheck      ==2.6.*,
+                       test-framework  ==0.8.*,
+                       test-framework-quickcheck2 == 0.3.*
