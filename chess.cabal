@@ -35,6 +35,7 @@ executable chess
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
+                       template-haskell==2.8.*,
                        chesshs         ==0.1.1,
                        lens            ==3.9.*,
                        bits-extras     ==0.1.*,
@@ -52,19 +53,13 @@ Test-Suite perft
   type:                exitcode-stdio-1.0
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
-  if flag(profiling)
-     ghc-options:         -Wall -fwarn-tabs -O2
-                          -funbox-strict-fields
-                          -rtsopts
-                          -prof -auto-all -osuf=_p.a
-                          -ddump-simpl -ddump-to-file
-  else
-     ghc-options:         -Wall -fwarn-tabs -O2
-                          -funbox-strict-fields
-                          -rtsopts
+  ghc-options:         -Wall -fwarn-tabs -O2
+                       -funbox-strict-fields
+                       -rtsopts
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
+                       template-haskell==2.8.*,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
                        lens            ==3.9.*,
@@ -89,6 +84,7 @@ Test-Suite suite
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
+                       template-haskell==2.8.*,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
                        lens            ==3.9.*,

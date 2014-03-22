@@ -14,7 +14,6 @@ import qualified Chess as C
 import           Chess.Board.Board
 import           Chess.Magic
 import           Data.BitBoard
-import           Data.ChessTypes
 import           Data.Square
 
   
@@ -65,16 +64,10 @@ isAttackedWithOccupancy b occ c pos = any (/= mempty)
 
 inCheck :: Board -> C.Color -> Bool
 inCheck b c = let kP = head $ toList $ piecesOf b c C.King
-              in isAttacked b (opponent' c) kP
+              in  isAttacked b (opponent' c) kP
 
 
 -- | is the king with the given colour attacked with the friendly pieces removed?
 inCheckWithNoFriendly :: Board -> C.Color -> Bool
 inCheckWithNoFriendly b c =  let kP = head $ toList $ piecesOf b c C.King
-                             in isAttackedWithOccupancy b (b^.piecesByColour (opponent' c)) (opponent' c) kP
-
-
-
-pawnAttackBB :: Square -> C.Color -> BitBoard
-pawnAttackBB pos c = let mask  = neighbourFilesBB (file pos)
-                     in mconcat [ fromSquare (offset pos $ direction c n) | n <- [7, 9] ] .&. mask
+                             in  isAttackedWithOccupancy b (b^.piecesByColour (opponent' c)) (opponent' c) kP

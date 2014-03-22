@@ -27,6 +27,17 @@ instance Read C.Color where
     "Black"   -> [ (C.Black, "") ]
     _         -> []
 
+instance Enum C.Color where
+  fromEnum C.White = 0
+  fromEnum C.Black = 1
+  toEnum   0       = C.White
+  toEnum   1       = C.Black
+  toEnum   _       = error "Unexpected number"
+
+instance Bounded C.Color where
+  minBound = C.White
+  maxBound = C.Black
+
 
 -- I have tried the tuple-gen package, but that doesn't define the right instance of
 -- Enum (a, b).

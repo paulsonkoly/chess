@@ -47,6 +47,7 @@ import           Data.Monoid
 import qualified Test.QuickCheck as Q hiding ((.&.))
 
 import           Data.BitBoard
+import qualified Data.BitBoard as BB (toInteger)
 import qualified Data.Bits as B (bit)
 import           Data.Square
 import qualified Data.Vector.Unboxed         as V
@@ -132,7 +133,7 @@ magicIndex
   -> Int      -- ^ span/base
   -> BitBoard -- ^ occupancy
   -> Int      -- ^ magic index
-magicIndex msk mgc shft spn occ = spn + toInt (((msk .&. occ) `mul` mgc) `shiftR` shft)
+magicIndex msk mgc shft spn occ = spn + fromIntegral (BB.toInteger (((msk .&. occ) `mul` mgc) `shiftR` shft))
 {-# INLINE magicIndex #-}
 
 
@@ -146,6 +147,7 @@ magic :: C.PieceType -> Square -> BitBoard -> BitBoard
 magic C.Rook  sq occ  = magic' rookMagics sq occ
 magic C.Bishop sq occ = magic' bishopMagics sq occ
 magic C.Queen sq occ  = magic' rookMagics sq occ .|. magic' bishopMagics sq occ
+magic _ _ _           = error "no magic"
 {-# INLINE magic #-}
 
 
