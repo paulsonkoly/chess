@@ -138,14 +138,15 @@ castleRightsByColour C.Black = blackCastleRights
 -- | The piece type at the given position
 pieceAt :: Board -> Square -> Maybe C.PieceType
 pieceAt b pos
-   | b^.pawns   .&. p /= mempty = Just C.Pawn
-   | b^.knights .&. p /= mempty = Just C.Knight
-   | b^.bishops .&. p /= mempty = Just C.Bishop
-   | b^.rooks   .&. p /= mempty = Just C.Rook
-   | b^.queens  .&. p /= mempty = Just C.Queen
-   | b^.kings   .&. p /= mempty = Just C.King
-   | otherwise                  = Nothing
-   where p = fromSquare pos
+  | (occupancy b) .&. p == mempty = Nothing
+  | b^.pawns      .&. p /= mempty = Just C.Pawn
+  | b^.knights    .&. p /= mempty = Just C.Knight
+  | b^.bishops    .&. p /= mempty = Just C.Bishop
+  | b^.rooks      .&. p /= mempty = Just C.Rook
+  | b^.queens     .&. p /= mempty = Just C.Queen
+  | b^.kings      .&. p /= mempty = Just C.King
+  | otherwise                     = error "inconsistent board"
+  where p = fromSquare pos
 
 
 -- | The piece colour at a given position
@@ -160,11 +161,13 @@ pieceColourAt b pos
 -- | the occupancy \Data.BitBoard\
 occupancy :: Board -> BitBoard
 occupancy b = b^.whitePieces .|. b^.blackPieces
+{-# INLINE occupancy #-}
 
 
 -- | the empty squares \Data.BitBoard\
 vacated :: Board -> BitBoard
 vacated = complement . occupancy
+{-# INLINE vacated #-}
 
 
 -- | my pieces
