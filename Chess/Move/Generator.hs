@@ -107,9 +107,19 @@ discoveredChecks b = do
   -- ps should be mempty most of the time..
   f <- toList ps
   t <- toList $ moveFun b pt f .&. complement (myPieces b)
+  -- make sure that the enemy king is in check..
+  guard $ inRayCheck b (occupancy b `xor` fromSquare f `xor` fromSquare t)
   return
     $ (capturedPiece .~ pieceAt b t)
     $ defaultMove f t pt (b^.next)
+
+
+inRayCheck :: Board -> BitBoard -> Bool
+inRayCheck b occ = or $ do
+  pt <- [ C.Queen, C.Rook, C.Bishop ]
+  -- King casting rays ..
+  let eKingRay = magic pt (eKingPos b) occ
+  return $ mempty /= eKingRay .&. (myPiecesOf b pt)
 
 
 castleChecks :: Board -> [ Move ]
