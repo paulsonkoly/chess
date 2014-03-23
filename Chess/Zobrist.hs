@@ -19,15 +19,14 @@ import           Data.Vector.Unboxed ((!))
 
 import           Data.ChessTypes
 import           Data.Square
-import qualified Chess as C
 
 
 data ZobristKey = ZobristPiece
                   { square     :: Square
-                  , pieceColor :: C.Color
-                  , pieceType  :: C.PieceType
+                  , pieceColor :: Colour
+                  , pieceType  :: PieceType
                   }
-                | ZobristSide { side :: C.Color }
+                | ZobristSide { side :: Colour }
                 | ZobristCastlingRights
                   { whiteRights :: CastlingRights
                   , blackRights :: CastlingRights
@@ -45,14 +44,14 @@ zobrist k = zobristVec ! zobristKey k
         zobristKey (ZobristEnPassant Nothing)    = 12 * 64 + 2 + maxCastle * maxCastle + (1 + fromEnum (maxBound :: File))
         maxCastle = fromEnum (maxBound :: CastlingRights)
         crVal wc bc = maxCastle * fromEnum wc + fromEnum bc
-        colVal C.White = 0
-        colVal C.Black = 1
-        ptVal C.Rook = 0
-        ptVal C.Knight = 1
-        ptVal C.Bishop = 2
-        ptVal C.Queen = 3
-        ptVal C.King = 4
-        ptVal C.Pawn = 5
+        colVal White = 0
+        colVal Black = 1
+        ptVal Rook = 0
+        ptVal Knight = 1
+        ptVal Bishop = 2
+        ptVal Queen = 3
+        ptVal King = 4
+        ptVal Pawn = 5
 
 
 zobristVec :: V.Vector Word64

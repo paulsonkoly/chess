@@ -46,6 +46,7 @@ import           Control.Lens
 import           Data.Monoid
 import qualified Test.QuickCheck as Q hiding ((.&.))
 
+import           Data.ChessTypes
 import           Data.BitBoard
 import qualified Data.BitBoard as BB (toInteger)
 import qualified Data.Bits as B (bit)
@@ -53,7 +54,6 @@ import           Data.Square
 import qualified Data.Vector.Unboxed         as V
 import qualified Data.Vector.Unboxed.Mutable as VM
 
-import qualified Chess as C
 
 type BBVector = V.Vector BitBoard
 type IVector  = V.Vector Int
@@ -77,7 +77,7 @@ $(makeLenses ''Magic)
 -- This can be used for offline Magic Bit Board construction. It should not
 -- be used in the engine - unless for testing. Therefore it's not exported.
 slidingAttackBB
-   :: C.PieceType  -- ^ Rook or Bishop
+   :: PieceType  -- ^ Rook or Bishop
    -> Square       -- ^ position
    -> BitBoard     -- ^ occupancy
    -> BitBoard     -- ^ resulting board
@@ -92,27 +92,27 @@ slidingAttackBB pt pos occ = fst $ flip execState (mempty, False) $ do
             hdist = hDist pos pos'
             vdist = vDist pos pos'
             accept = case pt of
-               C.Bishop -> hdist == vdist
-               C.Rook   -> (hdist == 0 && vdist == off) || (vdist == 0 && hdist == off)
+               Bishop -> hdist == vdist
+               Rook   -> (hdist == 0 && vdist == off) || (vdist == 0 && hdist == off)
                _        -> undefined
          cont <- use _2
          when (fromEnum pos' >= 0 && fromEnum pos' <= 63 && accept && cont) $ do
             _1 <>= fromSquare pos'
             when (fromSquare pos' .&. occ /= mempty) $ assign _2 False
    where
-      deltas :: C.PieceType -> Int -> Int
-      deltas C.Bishop 0 = 7
-      deltas C.Bishop 1 = -7
-      deltas C.Bishop 2 = 9
-      deltas C.Bishop 3 = -9
-      deltas C.Rook   0 = 8
-      deltas C.Rook   1 = -8
-      deltas C.Rook   2 = -1
-      deltas C.Rook   3 = 1
+      deltas :: PieceType -> Int -> Int
+      deltas Bishop 0 = 7
+      deltas Bishop 1 = -7
+      deltas Bishop 2 = 9
+      deltas Bishop 3 = -9
+      deltas Rook   0 = 8
+      deltas Rook   1 = -8
+      deltas Rook   2 = -1
+      deltas Rook   3 = 1
       deltas _        _ = undefined
 
 
-slidingMaskBB :: C.PieceType -> Square -> BitBoard
+slidingMaskBB :: PieceType -> Square -> BitBoard
 slidingMaskBB pt pos =
    let
       rank18   = rankBB firstRank .|. rankBB eighthRank
@@ -138,15 +138,15 @@ magicIndex msk mgc shft spn occ = spn + fromIntegral (BB.toInteger (((msk .&. oc
 
 
 bishopMagics :: Magic
-bishopMagics = makeMagic C.Bishop
+bishopMagics = makeMagic Bishop
 rookMagics :: Magic
-rookMagics   = makeMagic C.Rook
+rookMagics   = makeMagic Rook
 
 
-magic :: C.PieceType -> Square -> BitBoard -> BitBoard
-magic C.Rook  sq occ  = magic' rookMagics sq occ
-magic C.Bishop sq occ = magic' bishopMagics sq occ
-magic C.Queen sq occ  = magic' rookMagics sq occ .|. magic' bishopMagics sq occ
+magic :: PieceType -> Square -> BitBoard -> BitBoard
+magic Rook  sq occ  = magic' rookMagics sq occ
+magic Bishop sq occ = magic' bishopMagics sq occ
+magic Queen sq occ  = magic' rookMagics sq occ .|. magic' bishopMagics sq occ
 magic _ _ _           = error "no magic"
 {-# INLINE magic #-}
 
@@ -166,12 +166,12 @@ magic' m pos occ = let msk  = (m^.masks) `V.unsafeIndex` fromEnum pos
 
 
 -- | The dat size
-magicSize :: C.PieceType -> Int
+magicSize :: PieceType -> Int
 magicSize pt = sum [ B.bit $ popCount (slidingMaskBB pt pos) | pos <- squares ]
 
 
 -- | Calculates masks
-calcMasks :: C.PieceType -> BBVector
+calcMasks :: PieceType -> BBVector
 calcMasks pt = V.fromList $ map (slidingMaskBB pt) squares
 
 
@@ -187,7 +187,7 @@ calcSpans = V.scanl' (+) 0 . V.map (B.bit . (64 -))
 
 -- | Calculates dats from masks, shifts, spans and magics
 calcDat
-  :: C.PieceType -- ^ piece type
+  :: PieceType -- ^ piece type
   -> BBVector    -- ^ masks
   -> IVector     -- ^ shifts
   -> IVector     -- ^ spans
@@ -209,7 +209,7 @@ calcDat pt msks shfts spns mgs = V.create $ do
    return v
 
 
-lookForMagic :: C.PieceType -> BBVector -> IVector -> BBVector
+lookForMagic :: PieceType -> BBVector -> IVector -> BBVector
 lookForMagic pt msks shfts = V.create $ do
   v <- VM.new 64
   V.forM_ (V.enumFromN 0 64) $ \pos -> do
@@ -239,13 +239,13 @@ lookForMagic pt msks shfts = V.create $ do
       unless found $ search gen' mask pos dsize occ ref shft v d
 
       
-generateMagic :: C.PieceType -> BBVector
+generateMagic :: PieceType -> BBVector
 generateMagic pt = let msks  = calcMasks pt
                        shfts = calcShifts msks
                    in lookForMagic pt msks shfts
 
 
-makeMagic :: C.PieceType -> Magic
+makeMagic :: PieceType -> Magic
 makeMagic pt = execState (makeMagic' >> get) initDB
   where
     makeMagic' :: (MonadState Magic m) => m () 
@@ -258,6 +258,6 @@ makeMagic pt = execState (makeMagic' >> get) initDB
 
 
 prop_slidingAttack :: BitBoard -> Square -> Q.Property
-prop_slidingAttack b sq = Q.forAll (Q.elements [ C.Bishop, C.Rook ])
+prop_slidingAttack b sq = Q.forAll (Q.elements [ Bishop, Rook ])
                           $ \pt -> slidingAttackBB pt sq b == magic pt sq b
 

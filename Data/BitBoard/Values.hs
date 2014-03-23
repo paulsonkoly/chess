@@ -27,8 +27,7 @@ import           Data.BitBoard.BitBoard
 import           Data.BitBoard.TH
 import           Data.BitBoard.Values.Private
 import           Data.Square
-import qualified Chess as C
-import           Data.ChessTypes ()
+import           Data.ChessTypes
 
 import qualified Data.BitBoard.Values.Private as P (rankBB, fileBB)
 
@@ -90,8 +89,8 @@ sparseRandomBB = do
 {-# INLINE sparseRandomBB #-}
 
 
-preMagics :: C.PieceType -> V.Vector BitBoard
-preMagics C.Rook = V.fromList
+preMagics :: PieceType -> V.Vector BitBoard
+preMagics Rook = V.fromList
    [ BitBoard 108086461930717186  , BitBoard 1170936184705802240  , BitBoard 2449977990650535945
    , BitBoard 9295464849692688640 , BitBoard 9871899179322970368  , BitBoard 36033197213089793
    , BitBoard 9511607464157584932 , BitBoard 72057871066595584    , BitBoard 140738033631234
@@ -115,7 +114,7 @@ preMagics C.Rook = V.fromList
    , BitBoard 1689159369761030    , BitBoard 291045745602135042   , BitBoard 9235765802807472132
    , BitBoard 3458777727560196354
    ]
-preMagics C.Bishop = V.fromList
+preMagics Bishop = V.fromList
    [ BitBoard 4612253508295525120  , BitBoard 72629375669911808    , BitBoard 19149096707293184
    , BitBoard 14724943187017728    , BitBoard 1174331491509862400  , BitBoard 5476942305002913800
    , BitBoard 2594376855407165608  , BitBoard 2815866475448336     , BitBoard 14988049997375867008

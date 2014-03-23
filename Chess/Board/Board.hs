@@ -60,8 +60,6 @@ import           Data.Char
 import           Data.Word
 import           Data.Maybe
 
-import qualified Chess     as C
-
 import           Data.Square
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
@@ -77,7 +75,7 @@ data Board = Board
    , _queens            :: ! BitBoard
    , _kings             :: ! BitBoard
    , _pawns             :: ! BitBoard
-   , _next              :: ! C.Color
+   , _next              :: ! Colour
    , _enPassant         :: ! (Maybe Square)
    , _whiteCastleRights :: ! CastlingRights
    , _blackCastleRights :: ! CastlingRights
@@ -86,7 +84,7 @@ data Board = Board
 
 
 emptyBoard :: Board
-emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty C.White Nothing mempty mempty 0
+emptyBoard = Board mempty mempty mempty mempty mempty mempty mempty mempty White Nothing mempty mempty 0
 
 
 $(makeLenses ''Board)
@@ -94,66 +92,66 @@ $(makeLenses ''Board)
 
 
 -- | black for white, white for black
-opponent' :: C.Color -> C.Color
-opponent' C.White = C.Black
-opponent' C.Black = C.White
+opponent' :: Colour -> Colour
+opponent' White = Black
+opponent' Black = White
 {-# INLINE opponent' #-}
 
 
 -- | opposite colour of the next lens
-opponent :: Lens' Board C.Color
+opponent :: Lens' Board Colour
 opponent = lens (opponent' . (^.next)) (\s b -> (next.~ opponent' b) s)
 
 
 -- | the BitBoard Lens corresponding to the given `colour`
 piecesByColour 
-   :: C.Color              -- ^ Black / White
+   :: Colour               -- ^ Black / White
    -> Lens' Board BitBoard -- ^ Lens
-piecesByColour C.Black = blackPieces
-piecesByColour C.White = whitePieces
+piecesByColour Black = blackPieces
+piecesByColour White = whitePieces
 {-# INLINE piecesByColour #-}
 
 -- | the BitBoard Lens corresponding to the given PieceType
 piecesByType
-   :: C.PieceType          -- ^ Rook / Pawn etc.
+   :: PieceType          -- ^ Rook / Pawn etc.
    -> Lens' Board BitBoard -- ^ Lens
-piecesByType C.Pawn   = pawns
-piecesByType C.Rook   = rooks
-piecesByType C.Knight = knights
-piecesByType C.Bishop = bishops
-piecesByType C.Queen  = queens
-piecesByType C.King   = kings
+piecesByType Pawn   = pawns
+piecesByType Rook   = rooks
+piecesByType Knight = knights
+piecesByType Bishop = bishops
+piecesByType Queen  = queens
+piecesByType King   = kings
 {-# INLINE piecesByType #-}
 
 
 -- | Castle rights lens corresponding to the given colour
 castleRightsByColour
-  :: C.Color
+  :: Colour
   -> Lens' Board CastlingRights
-castleRightsByColour C.White = whiteCastleRights
-castleRightsByColour C.Black = blackCastleRights
+castleRightsByColour White = whiteCastleRights
+castleRightsByColour Black = blackCastleRights
 {-# INLINE castleRightsByColour #-}
 
 
 -- | The piece type at the given position
-pieceAt :: Board -> Square -> Maybe C.PieceType
+pieceAt :: Board -> Square -> Maybe PieceType
 pieceAt b pos
-  | (occupancy b) .&. p == mempty = Nothing
-  | b^.pawns      .&. p /= mempty = Just C.Pawn
-  | b^.knights    .&. p /= mempty = Just C.Knight
-  | b^.bishops    .&. p /= mempty = Just C.Bishop
-  | b^.rooks      .&. p /= mempty = Just C.Rook
-  | b^.queens     .&. p /= mempty = Just C.Queen
-  | b^.kings      .&. p /= mempty = Just C.King
+  | occupancy b .&. p == mempty = Nothing
+  | b^.pawns    .&. p /= mempty = Just Pawn
+  | b^.knights  .&. p /= mempty = Just Knight
+  | b^.bishops  .&. p /= mempty = Just Bishop
+  | b^.rooks    .&. p /= mempty = Just Rook
+  | b^.queens   .&. p /= mempty = Just Queen
+  | b^.kings    .&. p /= mempty = Just King
   | otherwise                     = error "inconsistent board"
   where p = fromSquare pos
 
 
 -- | The piece colour at a given position
-pieceColourAt :: Board -> Square -> Maybe C.Color
+pieceColourAt :: Board -> Square -> Maybe Colour
 pieceColourAt b pos
-  | b^.whitePieces .&. p /= mempty = Just C.White
-  | b^.blackPieces .&. p /= mempty = Just C.Black
+  | b^.whitePieces .&. p /= mempty = Just White
+  | b^.blackPieces .&. p /= mempty = Just Black
   | otherwise                      = Nothing
   where p = fromSquare pos
 
@@ -181,32 +179,32 @@ opponentsPieces b = b^.piecesByColour (b^.opponent)
 
 
 -- | pieces of a player of a specific type
-piecesOf :: Board -> C.Color -> C.PieceType -> BitBoard
+piecesOf :: Board -> Colour -> PieceType -> BitBoard
 piecesOf b colour pt = (b^.piecesByType pt) .&. (b^.piecesByColour colour)
 {-# INLINE piecesOf #-}
 
 
-myPiecesOf :: Board -> C.PieceType -> BitBoard
+myPiecesOf :: Board -> PieceType -> BitBoard
 myPiecesOf b = piecesOf b (b^.next)
 
 
-opponentsPiecesOf :: Board -> C.PieceType -> BitBoard
+opponentsPiecesOf :: Board -> PieceType -> BitBoard
 opponentsPiecesOf b = piecesOf b (b^.opponent)
 
 
-numberOf :: Board -> C.Color -> C.PieceType -> Int
+numberOf :: Board -> Colour -> PieceType -> Int
 numberOf b c = popCount . piecesOf b c
 
 
-paint :: C.PieceType -> C.Color -> Char
-paint pt c = let mods = if c == C.White then toUpper else id
+paint :: PieceType -> Colour -> Char
+paint pt c = let mods = if c == White then toUpper else id
              in  mods $ case pt of
-               C.Pawn   -> 'p'
-               C.Knight -> 'n'
-               C.Bishop -> 'b'
-               C.Rook   -> 'r'
-               C.Queen  -> 'q'
-               C.King   -> 'k'
+               Pawn   -> 'p'
+               Knight -> 'n'
+               Bishop -> 'b'
+               Rook   -> 'r'
+               Queen  -> 'q'
+               King   -> 'k'
 
 
 prettyPrint :: Board -> IO ()
@@ -239,7 +237,7 @@ fen b = boardPrint (toSquare aFile eighthRank) (0::Int) ++ " " ++ whosNext ++ " 
                            then ""
                            else '/' : boardPrint (toSquare aFile (pred $ rank sq)) 0
                       else boardPrint (toSquare (succ $ file sq) (rank sq)) acc
-        whosNext  = if (b^.next) == C.White then "w" else "b"
+        whosNext  = if (b^.next) == White then "w" else "b"
         castlings = let str = map (toUpper . paintCaslte) (toCastleList $ b^.whiteCastleRights)
                               ++ map paintCaslte  (toCastleList $ b^.blackCastleRights)
                     in if str == "" then "-" else str

@@ -14,8 +14,6 @@ import           Data.BitBoard.BitBoard
 import           Data.Square
 import           Data.ChessTypes
 
-import qualified Chess as C
-
 
 fileBB :: File -> BitBoard
 fileBB p = BitBoard $ 0x0101010101010101 `shift` fromEnum p
@@ -45,9 +43,9 @@ neighbourFilesBB' = neighbourFilesBB'' . fromEnum
     neighbourFilesBB''  _ = error "file out of range"
 
 
-aheadBB' :: Rank -> C.Color -> BitBoard
-aheadBB' r C.White = mconcat [ rankBB r' | r' <- [r .. eighthRank] ]
-aheadBB' r C.Black = mconcat [ rankBB r' | r' <- [firstRank .. r] ]
+aheadBB' :: Rank -> Colour -> BitBoard
+aheadBB' r White = mconcat [ rankBB r' | r' <- [r .. eighthRank] ]
+aheadBB' r Black = mconcat [ rankBB r' | r' <- [firstRank .. r] ]
 
 
 e4:: Square
@@ -66,6 +64,6 @@ kingAttackBB' s
   | otherwise = neighbourFilesBB' (file s) .&. shift (kingAttackBB' e4) (fromEnum s - fromEnum e4)
 
 
-pawnAttackBB' :: Square -> C.Color -> BitBoard
+pawnAttackBB' :: Square -> Colour -> BitBoard
 pawnAttackBB' pos c = let mask  = neighbourFilesBB' (file pos)
                       in mconcat [ fromSquare (offset pos $ direction c n) | n <- [7, 9] ] .&. mask

@@ -4,6 +4,8 @@ module Data.ChessTypes
        ( -- * Castling
          CastlingRights
        , Castle(..)
+       , Colour(..)
+       , PieceType(..)
        , toCastleList
        , fromCastle
        , intersect
@@ -15,28 +17,12 @@ module Data.ChessTypes
 
 import           Data.Char
 import           Data.Monoid
-import qualified Chess as C
 
 
 newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Read, Eq, Bounded)
 
--- we will define our data type for this
-instance Read C.Color where
-  readsPrec _ s = case s of
-    "White"   -> [ (C.White, "") ]
-    "Black"   -> [ (C.Black, "") ]
-    _         -> []
-
-instance Enum C.Color where
-  fromEnum C.White = 0
-  fromEnum C.Black = 1
-  toEnum   0       = C.White
-  toEnum   1       = C.Black
-  toEnum   _       = error "Unexpected number"
-
-instance Bounded C.Color where
-  minBound = C.White
-  maxBound = C.Black
+data Colour = White | Black deriving (Show, Read, Eq, Enum, Bounded)
+data PieceType = Queen | Rook | Bishop | Knight | King | Pawn deriving (Show, Eq)
 
 
 -- I have tried the tuple-gen package, but that doesn't define the right instance of
@@ -81,26 +67,26 @@ binFunc :: (Bool -> Bool -> Bool) -> CastlingRights -> CastlingRights -> Castlin
 binFunc f (CastlingRights (a, b)) (CastlingRights (c, d)) = CastlingRights (a `f` c, b `f` d)
 
 
-pieceValue :: C.PieceType -> Int
-pieceValue C.Queen  = 90
-pieceValue C.Rook   = 50
-pieceValue C.Bishop = 30
-pieceValue C.Knight = 30
-pieceValue C.Pawn   = 10
-pieceValue C.King   = 0
+pieceValue :: PieceType -> Int
+pieceValue Queen  = 90
+pieceValue Rook   = 50
+pieceValue Bishop = 30
+pieceValue Knight = 30
+pieceValue Pawn   = 10
+pieceValue King   = 0
 
 
-charToPiece :: Char -> C.PieceType
-charToPiece 'q' = C.Queen
-charToPiece 'r' = C.Rook
-charToPiece 'b' = C.Bishop
-charToPiece 'n' = C.Knight
-charToPiece 'p' = C.Pawn
-charToPiece 'k' = C.King
+charToPiece :: Char -> PieceType
+charToPiece 'q' = Queen
+charToPiece 'r' = Rook
+charToPiece 'b' = Bishop
+charToPiece 'n' = Knight
+charToPiece 'p' = Pawn
+charToPiece 'k' = King
 charToPiece c   = if c `elem` "QRBNPK" then charToPiece $ toLower c else error "Invalid char in charToPiece"
 
 
-direction :: C.Color -> Int -> Int
-direction C.White = id
-direction C.Black = (* (-1))
+direction :: Colour -> Int -> Int
+direction White = id
+direction Black = (* (-1))
 {-# INLINE direction #-}

@@ -8,16 +8,12 @@ import           Text.ParserCombinators.Parsec
 
 import           Data.Monoid
 import           Data.Functor
-import           Data.Word
 import           Data.Char
-import           Data.Bits
-import           Data.Maybe
 
 import           Data.Square
 import           Data.BitBoard
 import           Data.ChessTypes
 import           Chess.Board.Board
-import qualified Chess as C
 
 
 parserBoard :: Parser Board
@@ -46,9 +42,9 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
             parserSlash = char '/' >> go b (sq - 16)
             parserSpace = char ' ' >> return b
             charToColour c
-              | isLower c = C.Black
-              | otherwise = C.White
-    parserSide   = (char 'w' >> return C.White) <|> (char 'b' >> return C.Black)
+              | isLower c = Black
+              | otherwise = White
+    parserSide   = (char 'w' >> return White) <|> (char 'b' >> return Black)
     parserCastle = (char '-' >> return (mempty, mempty)) <|> go' (mempty, mempty)
     parserEnp    = (char '-' >> return Nothing) <|> liftM Just parserSquare
     go' p        = choice [ char 'k' >> go' ((_2 <>~ fromCastle Short) p)

@@ -11,8 +11,6 @@ import           Data.List
 import           Control.Lens hiding (to, from)
 import           Control.Monad
 
-import qualified Chess as C
-
 import           Data.Square
 import           Data.BitBoard
 import           Chess.Magic
@@ -68,13 +66,13 @@ anyMove b = let ok  = any (not . check b (b^.next) True)
 
 -- | enemy king position
 eKingPos :: Board -> Square
-eKingPos b = head $ toList $ piecesOf b (b^.opponent) C.King
+eKingPos b = head $ toList $ piecesOf b (b^.opponent) King
 
 
 -- | knight, bishop, rook, queen simple checks - not discovered check
 simpleChecks :: Board -> [ Move ]
 simpleChecks b = do
-  pt <- [ C.Queen, C.Rook, C.Bishop, C.Knight ]
+  pt <- [ Queen, Rook, Bishop, Knight ]
 
   let kingMoves  = moveFun b pt (eKingPos b) .&. complement (myPieces b)
   f <- toList $ piecesOf b (b^.next) pt
@@ -90,19 +88,19 @@ simpleChecks b = do
     $ defaultMove f t pt (b^.next)
 
   where
-    moveValid C.Knight f t = let hd = hDist f t
-                                 vd = vDist f t
-                             in (hd == 1 && vd == 2) || (hd == 2 && vd == 1) 
-    moveValid C.Bishop f t = hDist f t == vDist f t
-    moveValid C.Rook   f t = hDist f t == 0 || vDist f t == 0
-    moveValid C.Queen  f t = moveValid C.Rook f t || moveValid C.Bishop f t
-    moveValid _        _ _ = error "unexpected piece type"
+    moveValid Knight f t = let hd = hDist f t
+                               vd = vDist f t
+                           in (hd == 1 && vd == 2) || (hd == 2 && vd == 1) 
+    moveValid Bishop f t = hDist f t == vDist f t
+    moveValid Rook   f t = hDist f t == 0 || vDist f t == 0
+    moveValid Queen  f t = moveValid Rook f t || moveValid Bishop f t
+    moveValid _      _ _ = error "unexpected piece type"
 
 
 -- | discovered checks (with any piece type except pawns)
 discoveredChecks :: Board -> [ Move ]
 discoveredChecks b = do
-  pt <- [ C.Queen, C.Rook, C.Bishop, C.Knight, C.King ]
+  pt <- [ Queen, Rook, Bishop, Knight, King ]
   let ps = piecesOf b (b^.next) pt .&. discoverer b
   -- ps should be mempty most of the time..
   f <- toList ps
@@ -116,10 +114,10 @@ discoveredChecks b = do
 
 inRayCheck :: Board -> BitBoard -> Bool
 inRayCheck b occ = or $ do
-  pt <- [ C.Queen, C.Rook, C.Bishop ]
+  pt <- [ Queen, Rook, Bishop ]
   -- King casting rays ..
   let eKingRay = magic pt (eKingPos b) occ
-  return $ mempty /= eKingRay .&. (myPiecesOf b pt)
+  return $ mempty /= eKingRay .&. myPiecesOf b pt
 
 
 castleChecks :: Board -> [ Move ]
@@ -137,8 +135,8 @@ pawnSimpleChecks b = let kp = [ offset (eKingPos b) (direction (b^.opponent) lr)
 
 pawnPromotions :: Board -> [ Move ]
 pawnPromotions b = let opSecond = rankBB $ case b^.next of
-                         C.White -> seventhRank
-                         C.Black -> secondRank
+                         White -> seventhRank
+                         Black -> secondRank
                    in pawnMoves b (\f _ -> fromSquare f .&. opSecond /= mempty)
 
 
@@ -157,13 +155,13 @@ pawnEnPassants b = do
   (f, t, enp) <- pawnEnPassantSquares b
   return
     $ (enPassantTarget .~ enp)
-    $ defaultMove f t C.Pawn (b^.next)
+    $ defaultMove f t Pawn (b^.next)
 
 
 -- | pieces that can give discovered checks
 discoverer :: Board -> BitBoard
 discoverer b = mconcat $ do
-  pt <- [ C.Rook, C.Bishop, C.Queen ]
+  pt <- [ Rook, Bishop, Queen ]
   let
     -- King casting rays ..
     eKingRayNear = magic pt (eKingPos b) (occupancy b)
@@ -199,7 +197,7 @@ castleQuiet b = castleMoves b False
 pawnQuietMoves :: Board -> [ Move ]
 pawnQuietMoves b = do
   (f, t, _) <- pawnAdvanceSquares b
-  concatMap promote $ return $ defaultMove f t C.Pawn (b^.next)
+  concatMap promote $ return $ defaultMove f t Pawn (b^.next)
 
 
 
@@ -211,7 +209,7 @@ pawnQuietMovesSorted = sortBy heuristics . pawnQuietMoves
 -- | captures or quiet moves
 normMoveGen :: Board -> BitBoard -> [ Move ]
 normMoveGen b filt = do
-  pt <- [ C.Queen, C.Rook, C.Bishop, C.Knight, C.King ]
+  pt <- [ Queen, Rook, Bishop, Knight, King ]
   let ps = piecesOf b (b^.next) pt
   f <- toList ps
   t <- toList $ moveFun b pt f .&. filt
@@ -220,11 +218,11 @@ normMoveGen b filt = do
     $ defaultMove f t pt (b^.next)
 
 
-moveFun :: Board -> C.PieceType -> Square -> BitBoard
+moveFun :: Board -> PieceType -> Square -> BitBoard
 moveFun b pt
-  | pt == C.Knight = knightAttackBB
-  | pt == C.King   = kingAttackBB
-  | pt == C.Pawn   = error "moveFun is not implemented for Pawns"
+  | pt == Knight = knightAttackBB
+  | pt == King   = kingAttackBB
+  | pt == Pawn   = error "moveFun is not implemented for Pawns"
   | otherwise      = \t -> magic pt t (occupancy b)
 
 
@@ -234,13 +232,13 @@ pawnMoves b fun = do
   guard $ fun f t
   map (enPassantTarget .~ enp) $ promote
     $ (capturedPiece .~ pieceAt b t)
-    $ defaultMove f t C.Pawn (b^.next)
+    $ defaultMove f t Pawn (b^.next)
 
 
 promote :: Move -> [ Move ]
 promote m = if fromSquare (m^.to) .&. (rankBB firstRank .|. rankBB eighthRank) /= mempty
             then do
-              promo <- [ C.Queen, C.Rook, C.Knight, C.Bishop ]
+              promo <- [ Queen, Rook, Knight, Bishop ]
               return $ (promotion .~ Just promo) m
             else [ m ]
 
@@ -248,12 +246,12 @@ promote m = if fromSquare (m^.to) .&. (rankBB firstRank .|. rankBB eighthRank) /
 -- | Pawn captures (from, to) including promotions, excluding advances or en Passant
 pawnCaptureSquares :: Board -> [ (Square, Square, Maybe Square) ]
 pawnCaptureSquares b = do
-  let myPawns = myPiecesOf b C.Pawn
+  let myPawns = myPiecesOf b Pawn
       -- files from which we can left/right capture
-      cFiles 7 C.White = complement $ fileBB aFile
-      cFiles 9 C.White = complement $ fileBB hFile
-      cFiles 7 C.Black = complement $ fileBB hFile
-      cFiles 9 C.Black = complement $ fileBB aFile
+      cFiles 7 White = complement $ fileBB aFile
+      cFiles 9 White = complement $ fileBB hFile
+      cFiles 7 Black = complement $ fileBB hFile
+      cFiles 9 Black = complement $ fileBB aFile
       cFiles _ _       = error "Unexpected numbers"
   capture <- [7, 9]  -- left and right capture
   target  <- toList $ opponentsPieces b .&. ((myPawns .&. cFiles capture (b^.next)) `shift` direction (b^.next) capture)
@@ -264,9 +262,9 @@ pawnCaptureSquares b = do
 pawnAdvanceSquares :: Board -> [ (Square, Square, Maybe Square) ]
 pawnAdvanceSquares b = do
   step <- [ 1, 2 ]
-  let myPawns'  = myPiecesOf b C.Pawn
+  let myPawns'  = myPiecesOf b Pawn
       myPawns   = if step == 1 then myPawns' else myPawns' .&. mySecond
-      mySecond  = rankBB $ if b^.next == C.White then secondRank else seventhRank
+      mySecond  = rankBB $ if b^.next == White then secondRank else seventhRank
       unblocked = complement $ foldl1 (<>) [ occupancy b `shift` direction (b^.next) (-8 * j) | j <- [ 1 .. step ] ]
   pawn <- toList $ myPawns .&. unblocked
   return (pawn, offset pawn $ step * direction (b^.next) 8, Nothing)
@@ -277,7 +275,7 @@ pawnEnPassantSquares b = case b^.enPassant of
   Just square -> do
     pawn <- toList $ (fromSquare (offset square 1) .|. fromSquare (offset square (-1)))
             .&. neighbourFilesBB (file square)
-            .&. myPiecesOf b C.Pawn
+            .&. myPiecesOf b Pawn
     return (pawn, offset square $ direction (b^.next) 8, Just square)
   Nothing -> []
 
@@ -285,40 +283,40 @@ pawnEnPassantSquares b = case b^.enPassant of
 castleMoves :: Board -> Bool -> [ Move ]
 castleMoves b chk = do
   side <- toCastleList $ b^.castleRightsByColour (b^.next)
-  let kRays     = magic C.Rook (eKingPos b) (occupancy b)
+  let kRays     = magic Rook (eKingPos b) (occupancy b)
       (f, t)    = kingCastleMove (b^.next) side
       rt        = toEnum $ (fromEnum f + fromEnum t) `div` 2
       checkSqrs = toList $ checkCastleBB (b^.next) side
   guard $ chk /= (fromSquare rt .&. kRays == mempty)
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
   guard $ not $ F.any (isAttacked b (b^.opponent)) checkSqrs
-  return $ (castle .~ Just side) $ defaultMove f t C.King $ b^.next
+  return $ (castle .~ Just side) $ defaultMove f t King $ b^.next
 
 
-vacancyCastleBB :: C.Color -> Castle -> BitBoard
-vacancyCastleBB C.White Long  = mconcat [ fromSquare sq | sq <- [(toSquare bFile firstRank) .. (toSquare dFile firstRank)]]
-vacancyCastleBB C.White Short = mconcat [ fromSquare sq | sq <- [(toSquare fFile firstRank) .. (toSquare gFile firstRank)]]
-vacancyCastleBB C.Black Long  = mconcat [ fromSquare sq | sq <- [(toSquare bFile eighthRank) .. (toSquare dFile eighthRank)]]
-vacancyCastleBB C.Black Short = mconcat [ fromSquare sq | sq <- [(toSquare fFile eighthRank) .. (toSquare gFile eighthRank)]]
+vacancyCastleBB :: Colour -> Castle -> BitBoard
+vacancyCastleBB White Long  = mconcat [ fromSquare sq | sq <- [(toSquare bFile firstRank) .. (toSquare dFile firstRank)]]
+vacancyCastleBB White Short = mconcat [ fromSquare sq | sq <- [(toSquare fFile firstRank) .. (toSquare gFile firstRank)]]
+vacancyCastleBB Black Long  = mconcat [ fromSquare sq | sq <- [(toSquare bFile eighthRank) .. (toSquare dFile eighthRank)]]
+vacancyCastleBB Black Short = mconcat [ fromSquare sq | sq <- [(toSquare fFile eighthRank) .. (toSquare gFile eighthRank)]]
 {-# INLINE vacancyCastleBB #-}
 
 
-checkCastleBB :: C.Color -> Castle -> BitBoard
-checkCastleBB C.White Long  = mconcat [ fromSquare sq | sq <- [(toSquare cFile firstRank) .. (toSquare eFile firstRank)]]
-checkCastleBB C.White Short = mconcat [ fromSquare sq | sq <- [(toSquare eFile firstRank) .. (toSquare gFile firstRank)]]
-checkCastleBB C.Black Long  = mconcat [ fromSquare sq | sq <- [(toSquare cFile eighthRank) .. (toSquare eFile eighthRank)]]
-checkCastleBB C.Black Short = mconcat [ fromSquare sq | sq <- [(toSquare eFile eighthRank) .. (toSquare gFile eighthRank)]]
+checkCastleBB :: Colour -> Castle -> BitBoard
+checkCastleBB White Long  = mconcat [ fromSquare sq | sq <- [(toSquare cFile firstRank) .. (toSquare eFile firstRank)]]
+checkCastleBB White Short = mconcat [ fromSquare sq | sq <- [(toSquare eFile firstRank) .. (toSquare gFile firstRank)]]
+checkCastleBB Black Long  = mconcat [ fromSquare sq | sq <- [(toSquare cFile eighthRank) .. (toSquare eFile eighthRank)]]
+checkCastleBB Black Short = mconcat [ fromSquare sq | sq <- [(toSquare eFile eighthRank) .. (toSquare gFile eighthRank)]]
 {-# INLINE checkCastleBB #-}
 
 
-kingCastleMove :: C.Color -> Castle -> (Square, Square)
-kingCastleMove C.White Long  = (toSquare eFile firstRank, toSquare cFile firstRank)
-kingCastleMove C.White Short = (toSquare eFile firstRank, toSquare gFile firstRank)
-kingCastleMove C.Black Long  = (toSquare eFile eighthRank, toSquare cFile eighthRank)
-kingCastleMove C.Black Short = (toSquare eFile eighthRank, toSquare gFile eighthRank)
+kingCastleMove :: Colour -> Castle -> (Square, Square)
+kingCastleMove White Long  = (toSquare eFile firstRank, toSquare cFile firstRank)
+kingCastleMove White Short = (toSquare eFile firstRank, toSquare gFile firstRank)
+kingCastleMove Black Long  = (toSquare eFile eighthRank, toSquare cFile eighthRank)
+kingCastleMove Black Short = (toSquare eFile eighthRank, toSquare gFile eighthRank)
 {-# INLINE kingCastleMove #-}
 
 
-check :: Board -> C.Color -> Bool -> Move -> Bool
-check b c inc m = (inc || m^.piece == C.King) && inCheck (makeMoveSimplified m b) c
+check :: Board -> Colour -> Bool -> Move -> Bool
+check b c inc m = (inc || m^.piece == King) && inCheck (makeMoveSimplified m b) c
 {-# INLINE check #-}

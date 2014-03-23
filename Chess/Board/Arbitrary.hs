@@ -9,12 +9,11 @@ import           Data.Maybe
 import           Test.QuickCheck (arbitrary, suchThat)
 import qualified Test.QuickCheck as Q
 
+import           Data.ChessTypes
 import           Data.BitBoard
 import           Data.Square
 import           Chess.Board.Board
 import           Chess.Board.Attacks
-
-import qualified Chess as C
 
 instance Q.Arbitrary Board where
   -- TODO   enpassant
@@ -32,7 +31,7 @@ instance Q.Arbitrary Board where
     let occ = rs .|. ns .|. bs .|. qs .|. ps
     wpcs <- liftM (.&. occ) arbitrary
     let bpcs = occ .&. complement wpcs
-    n <- Q.elements [ C.Black, C.White ]
+    n <- Q.elements [ Black, White ]
     let b =   (whitePieces .~ wpcs .|. wk)
             $ (blackPieces .~ bpcs .|. bk)
             $ (rooks       .~ rs)
@@ -56,4 +55,4 @@ instance Q.Arbitrary Board where
                           $ (queens      %~ (.&. bb))
                           $ (pawns       %~ (.&. bb)) b) . complement . fromSquare)
              $ filter goodSquare squares
-    where goodSquare sq = let p = pieceAt b sq in isJust p && p /= Just C.King
+    where goodSquare sq = let p = pieceAt b sq in isJust p && p /= Just King
