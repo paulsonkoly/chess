@@ -1,5 +1,5 @@
 {-# LANGUAGE TemplateHaskell #-}
--- * Various BitBoard values
+-- | Various BitBoard values
 module Data.BitBoard.Values
        ( neighbourFilesBB
        , neighbourRanksBB

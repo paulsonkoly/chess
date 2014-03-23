@@ -113,7 +113,7 @@ piecesByColour White = whitePieces
 
 -- | the BitBoard Lens corresponding to the given PieceType
 piecesByType
-   :: PieceType          -- ^ Rook / Pawn etc.
+   :: PieceType            -- ^ Rook / Pawn etc.
    -> Lens' Board BitBoard -- ^ Lens
 piecesByType Pawn   = pawns
 piecesByType Rook   = rooks

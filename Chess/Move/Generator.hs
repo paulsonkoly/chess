@@ -90,7 +90,7 @@ simpleChecks b = do
   where
     moveValid Knight f t = let hd = hDist f t
                                vd = vDist f t
-                           in (hd == 1 && vd == 2) || (hd == 2 && vd == 1) 
+                           in (hd == 1 && vd == 2) || (hd == 2 && vd == 1)
     moveValid Bishop f t = hDist f t == vDist f t
     moveValid Rook   f t = hDist f t == 0 || vDist f t == 0
     moveValid Queen  f t = moveValid Rook f t || moveValid Bishop f t
