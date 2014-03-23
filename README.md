@@ -29,4 +29,12 @@ Qc5+ Bc7 21. Nb5 Kb7 22. Qxc7+ Ka6 23. c4 Qf8 24. Rd6+ Qxd6 25. Nxd6 Rhb8 26.
 Ne4 Rb6 27. Nd4 Rab8 28. Nc5+ Ka5 29. Nc6# 1-0
 ~~~
 
+
+Haddock
+=======
+
+The auto generated haskell code documentation lives on http://phaul.github.io/chess/. This is manually regenerated from time to time, and might not reflect the latest code base.
+
+---
+
 [![Build Status](https://travis-ci.org/phaul/chess.png?branch=master)](https://travis-ci.org/phaul/chess)
