@@ -1,6 +1,5 @@
 module Chess.Board.Attacks
-       ( attacking
-       , attackedBy
+       ( attackedBy
        , isAttacked
        , inCheck
        , inCheckWithNoFriendly
@@ -8,36 +7,12 @@ module Chess.Board.Attacks
 
 import           Control.Lens
 import           Data.Monoid
-import           Data.Functor
 
 import qualified Chess as C
 import           Chess.Board.Board
 import           Chess.Magic
 import           Data.BitBoard
 import           Data.Square
-
-  
--- | the bitboard & the piece position that the given piece type attacks with the given colour
-attacking
-  :: C.PieceType   -- ^ piece type
-  -> Board         -- ^ board
-  -> C.Color       -- ^ attacker's colour
-  -> BitBoard      -- ^ occupancy to use
-  -> [ (Square, BitBoard) ]
-attacking pt b c occ =
-  let pcs     = toList $ piecesOf b c pt
-      notme   = complement $ b^.piecesByColour c
-      att pos = (pos, notme .&. m pos)
-      m pos   = case pt of
-        C.Queen  -> magic C.Queen pos occ
-        C.Rook   -> magic C.Rook pos occ
-        C.Bishop -> magic C.Bishop pos occ
-        C.Knight -> knightAttackBB pos
-        C.King   -> kingAttackBB pos
-        C.Pawn   -> undefined
-  in case pt of
-    C.Pawn -> undefined
-    _      -> att <$> pcs
 
 
 -- | the bitboard from where the piece type of the given colour is attacking the specified position
