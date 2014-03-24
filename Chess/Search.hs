@@ -2,7 +2,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Chess.Search
-       ( negaScout
+       ( search
        , Search(..)
        , SearchState(..)
        , mkSearchState
@@ -68,19 +68,21 @@ data LoopResult = LoopResult
 $(makeLenses ''LoopResult)
 
 
-negaScout
+-- | top level search
+search
   :: Int -- ^ depth
   -> Search SearchResult
-negaScout d = do
+search d = do
   tpcHit   .= 0
   tpcMiss  .= 0
   nCnt     .= 0
   c <- liftM (\b -> direction (b^.next) 1) $ use board
-  r <- (c*) <@> negaScout' d d (-inf) inf c
+  r <- (c*) <@> negaScout d d (-inf) inf c
   kill %= bulkInsertKiller (r^.SR.moves)
   return r
 
 
+-- | executes search action with a moved played
 withMove :: Move -> Search a -> Search a
 withMove m ac = do
   old <- use board
@@ -91,11 +93,14 @@ withMove m ac = do
 {-# INLINE withMove #-}
 
 
-tryTransPosCache
-  :: Int -> Int -> Int -> Int                                        -- ^ depth / alpha / beta / colour
-  -> (Int -> Int -> Int -> Int -> Maybe Move -> Search SearchResult) -- ^ Maybe move is the TPC recommendation
+-- | executes a search action with a transpositional cache lookup
+withTransPosCache
+  :: Int -- ^ depth
+  -> Int -- ^ alpha
+  -> Int -- ^ beta
+  -> (Int -> Int -> Maybe Move -> Search SearchResult)
   -> Search SearchResult
-tryTransPosCache d alpha beta c f = do
+withTransPosCache d alpha beta f = do
   b <- use board
   t <- use tpc
 
@@ -109,38 +114,38 @@ tryTransPosCache d alpha beta c f = do
         TPC.Lower -> let alpha' = max alpha $ entry^.result^.eval
                      in if alpha' >= beta
                         then return $ SearchResult [] alpha'
-                        else f d alpha' beta c $ first $ entry^.result
+                        else f alpha' beta $ first $ entry^.result
         TPC.Upper -> let beta' = min beta $ entry^.result^.eval
                      in if alpha >= beta'
                         then return $ SearchResult [] alpha
-                        else f d alpha beta' c $ first $ entry^.result
+                        else f alpha beta' $ first $ entry^.result
     Left mr -> do
       tpcMiss += 1
-      f d alpha beta c mr
-{-# INLINE tryTransPosCache #-}
+      f alpha beta mr
+{-# INLINE withTransPosCache #-}
 
 
+-- | iterates with killer heuristics
 withKiller
-  :: [ Move ]
-  -> Int
-  -> Int
-  -> Int
-  -> Bool
-  -> (Bool -> Move -> Int -> Int -> Search SearchResult) -- ^ True is fed in in the first iteration (for negascout)
+  :: [ Move ] -- ^ move list
+  -> Int      -- ^ depth
+  -> ( [ Move ] -> Search LoopResult)
   -> Search LoopResult  
-withKiller ml d alpha beta rep ac = do
+withKiller ml d f = do
   ml' <- liftM (killer d ml) (use kill)
-  lr@(LoopResult t res) <- iterateMoves ml' d alpha beta rep ac
+  lr@(LoopResult t res) <- f ml'
   when (t == TPC.Lower) $ kill %= insertKiller d (first res)
   return lr
+{-# INLINE withKiller #-}
 
 
+-- | iterates search on a move list
 iterateMoves
   :: [ Move ]
   -> Int                                    -- ^ depth
   -> Int                                    -- ^ alpha
   -> Int                                    -- ^ beta
-  -> Bool                                   -- ^ Report
+  -> Bool                                   -- ^ report info
   -> (Bool -> Move -> Int -> Int -> Search SearchResult) -- ^ True is fed in in the first iteration (for negascout)
   -> Search LoopResult
 iterateMoves ml d alpha beta rep ac = do
@@ -170,15 +175,16 @@ hitRatio :: SearchState -> Int
 hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
 
 
-negaScout'
+-- | The negascout search with transpos cache and killer.
+negaScout
   :: Int -- ^ max depth
   -> Int -- ^ depth
   -> Int -- ^ alpha
   -> Int -- ^ beta
   -> Int -- ^ colour
   -> Search SearchResult
-negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alpha beta c mr -> do
-  mate <- liftM checkMate $ use board
+negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta mr -> do
+  mate <- liftM (not . anyMove) $ use board
   if mate
     then do
       nCnt += 1
@@ -187,23 +193,24 @@ negaScout' mx d' alpha' beta' c' = tryTransPosCache d' alpha' beta' c' $ \d alph
           then quiscene alpha beta c
           else do
             ml <- getMoveList mr moves
-            r <- withKiller ml d alpha beta (mx == d) $ \f m a b ->
-              withMove m $ m <++> if not f
-                                  then do
-                                    n <- ((-1)*) <@> negaScout' mx (d - 1) (-a - 1) (-a) (-c)
-                                    if a < n^.eval && n^.eval < b
-                                      then ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
-                                      else return n
-                                  else ((-1)*) <@> negaScout' mx (d - 1) (-b) (-a) (-c)
+            
+            r <- withKiller ml d
+                 $ \ml' -> iterateMoves ml' d alpha beta (mx == d)
+                           $ \f m a b -> withMove m
+                                         $ m <++>
+                                         if not f
+                                         then do
+                                           n <- ((-1)*) <@> negaScout mx (d - 1) (-a - 1) (-a) (-c)
+                                           if a < n^.eval && n^.eval < b
+                                             then ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
+                                             else return n
+                                         else ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
             return $ r^.line
 
 
-checkMate :: Board -> Bool
-checkMate b = inCheck b (b^.next) && not (anyMove b)
-            
-
+-- | quiscene search
 quiscene :: Int -> Int -> Int -> Search SearchResult
-quiscene alpha' beta' c' = tryTransPosCache 0 alpha' beta' c' $ \_ alpha beta c mr -> do
+quiscene alpha' beta' c = withTransPosCache 0 alpha' beta' $ \alpha beta mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   nCnt += 1
   if standPat >= beta
