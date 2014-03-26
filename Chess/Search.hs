@@ -77,9 +77,24 @@ search d = do
   tpcMiss  .= 0
   nCnt     .= 0
   c <- liftM (\b -> direction (b^.next) 1) $ use board
-  r <- (c*) <@> negaScout d d (-inf) inf c
-  kill %= bulkInsertKiller (r^.SR.moves)
-  return r
+  withIterativeDeepening d 1 $ \d -> do
+    r <- (c*) <@> negaScout d d (-inf) inf c
+    kill .= insertPVInKiller (r^.SR.moves)
+    return r
+
+
+-- | searches with iterative deepening
+withIterativeDeepening
+  :: Int                -- ^ max depth
+  -> Int                -- ^ start depth
+  -> (Int -> Search a)  -- ^ search of given depth
+  -> Search a
+withIterativeDeepening mx d s = do
+  liftIO $ putStrLn $ "info depth " ++ show d
+  r <- s d
+  if d >= mx
+    then return r
+    else withIterativeDeepening mx (d + 1) s
 
 
 -- | executes search action with a moved played
@@ -128,13 +143,14 @@ withTransPosCache d alpha beta f = do
 -- | iterates with killer heuristics
 withKiller
   :: [ Move ] -- ^ move list
+  -> Int      -- ^ max depth
   -> Int      -- ^ depth
   -> ( [ Move ] -> Search LoopResult)
   -> Search LoopResult  
-withKiller ml d f = do
-  ml' <- liftM (killer d ml) (use kill)
+withKiller ml mx d f = do
+  ml' <- liftM (killer (mx - d) ml) (use kill)
   lr@(LoopResult t res) <- f ml'
-  when (t == TPC.Lower) $ kill %= insertKiller d (first res)
+  when (t == TPC.Lower) $ kill %= insertKiller (mx - d) (first res)
   return lr
 {-# INLINE withKiller #-}
 
@@ -193,8 +209,8 @@ negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta m
           then quiscene alpha beta c
           else do
             ml <- getMoveList mr moves
-            
-            r <- withKiller ml d
+
+            r <- withKiller ml mx d
                  $ \ml' -> iterateMoves ml' d alpha beta (mx == d)
                            $ \f m a b -> withMove m
                                          $ m <++>
@@ -238,3 +254,4 @@ inf = maxBound
 
 addMaybeMove :: (Eq a) => Maybe a -> [a] -> [a]
 addMaybeMove mr l = maybe l (\m -> m : filter (/= m) l) mr
+{-# INLINE addMaybeMove #-}
