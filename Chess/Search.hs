@@ -3,8 +3,9 @@
 
 module Chess.Search
        ( search
-       , Search(..)
-       , SearchState(..)
+       , Search
+       , runSearch
+       , SearchState
        , mkSearchState
        , module Chess.SearchResult
        , board
@@ -32,6 +33,7 @@ data SearchState = SearchState
                    , _nCnt     :: ! Int                     
                    }
 
+-- | Creates a search state with the initialBoard. Use the board Lens to manipulate the position in the SearchState
 mkSearchState :: SearchState
 mkSearchState = SearchState initialBoard TPC.mkTransPosCache mkKiller 0 0 0
 
@@ -39,12 +41,16 @@ mkSearchState = SearchState initialBoard TPC.mkTransPosCache mkKiller 0 0 0
 $(makeLenses ''SearchState)
 
 
-newtype Search a = Search { runSearch :: StateT SearchState IO a }
+newtype Search a = Search { runSearch' :: StateT SearchState IO a }
+
+-- | runs a search
+runSearch :: Search a -> SearchState -> IO (a, SearchState)
+runSearch = runStateT . runSearch'
 
 
 instance Monad Search where
   return = Search . return
-  (Search a) >>= f = Search $ a >>= runSearch . f
+  (Search a) >>= f = Search $ a >>= runSearch' . f
 
 
 instance MonadIO Search where
@@ -54,6 +60,7 @@ instance MonadIO Search where
 instance MonadState SearchState Search where
   get = Search get
   put = Search . put
+
 
 (<@>) :: (Int -> Int) -> Search SearchResult -> Search SearchResult
 f <@> m = liftM (f SR.<@>) m
@@ -77,8 +84,8 @@ search d = do
   tpcMiss  .= 0
   nCnt     .= 0
   c <- liftM (\b -> direction (b^.next) 1) $ use board
-  withIterativeDeepening d 1 $ \d -> do
-    r <- (c*) <@> negaScout d d (-inf) inf c
+  withIterativeDeepening d 1 $ \d' -> do
+    r <- (c*) <@> negaScout d' d' (-inf) inf c
     kill .= insertPVInKiller (r^.SR.moves)
     return r
 

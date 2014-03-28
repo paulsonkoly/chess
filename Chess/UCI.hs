@@ -4,7 +4,6 @@ module Chess.UCI
 
 import           Control.Lens hiding (from, to)
 import           Control.Applicative (liftA)
-import           Control.Monad.State
 import           Data.List
 import           Data.IORef
 import           System.Exit
@@ -133,7 +132,7 @@ uci = do
                       return []
                     getResponse (CmdGo _) = do
                       p <- readIORef lastPosition
-                      (pv, p') <- runStateT (runSearch (search 4)) p
+                      (pv, p') <- runSearch (search 4) p
                       writeIORef lastPosition p'
                       let m = fromJust $ first pv
                       return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
