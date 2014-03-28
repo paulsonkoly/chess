@@ -1,4 +1,6 @@
-module Chess.UCI where
+module Chess.UCI
+       ( uci
+       ) where
 
 import           Control.Lens hiding (from, to)
 import           Control.Applicative (liftA)
@@ -14,8 +16,6 @@ import           Text.ParserCombinators.Parsec
 import           Chess.Move
 import           Chess.Board
 import           Chess.Search
-import qualified Chess.TransPosCache as TPC
-import           Chess.Evaluation
 
 
 data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
@@ -23,7 +23,7 @@ data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
 data Command = CmdUci 
              | CmdIsReady 
              | CmdUciNewGame 
-             | CmdPosition Board -- [(Int, Int, Maybe C.PieceType)] 
+             | CmdPosition Board
              | CmdGo SearchOption
              | CmdStop
              | CmdQuit
@@ -48,39 +48,37 @@ instance Show Response where
 
 
 ------------------ parsers --------------
-p_cmd_uci :: Parser Command
-p_cmd_uci = string "uci" >> return CmdUci
+uciUciParser :: Parser Command
+uciUciParser = string "uci" >> return CmdUci
 
-p_cmd_isready :: Parser Command
-p_cmd_isready = string "isready" >> return CmdIsReady
+uciIsReadyParser :: Parser Command
+uciIsReadyParser = string "isready" >> return CmdIsReady
 
-p_cmd_ucinewgame :: Parser Command
-p_cmd_ucinewgame = string "ucinewgame" >> return CmdUciNewGame
+uciNewGameParser :: Parser Command
+uciNewGameParser = string "ucinewgame" >> return CmdUciNewGame
 
-p_cmd_stop :: Parser Command
-p_cmd_stop = string "stop" >> return CmdStop
+uciStopParser :: Parser Command
+uciStopParser = string "stop" >> return CmdStop
 
-p_cmd_quit :: Parser Command
-p_cmd_quit = string "quit" >> return CmdQuit
+uciQuitParser :: Parser Command
+uciQuitParser = string "quit" >> return CmdQuit
 
-p_int :: Parser Int
-p_int = liftA read $ many1 digit
+uciIntParser :: Parser Int
+uciIntParser = liftA read $ many1 digit
 
-p_cmd_go :: Parser Command
-p_cmd_go = do
-                string "go"
-                spaces
-                mbTimeout <- optionMaybe (string "movetime" >> spaces >> p_int)
+uciGoParser :: Parser Command
+uciGoParser = do
+                string "go" >> spaces
+                mbTimeout <- optionMaybe (string "movetime" >> spaces >> uciIntParser)
                 return $ case mbTimeout of
                             Nothing -> CmdGo Infinity
                             Just timeout -> CmdGo $ MovetimeMsc timeout
                     
     
-p_cmd_position :: CharParser () Command
-p_cmd_position = do
-  string "position"
-  many1 $ char ' '
-  posType <- (string "fen" <|> string "startpos")
+uciPositionParser :: CharParser () Command
+uciPositionParser = do
+  _ <- string "position" >> (many1 $ char ' ')
+  posType <- string "fen" <|> string "startpos"
   spaces
   pos <- if posType == "fen" then parserBoard else return initialBoard
   spaces
@@ -92,32 +90,40 @@ p_cmd_position = do
         Just m  -> parserMoveList $ makeMove m pos
         Nothing -> return pos
 
-p_cmd :: Parser Command
-p_cmd = (try p_cmd_ucinewgame) <|> p_cmd_uci <|> p_cmd_isready <|> p_cmd_stop <|> p_cmd_quit <|> p_cmd_go <|> p_cmd_position
+
+uciCmdParser :: Parser Command
+uciCmdParser = try uciNewGameParser
+               <|> uciUciParser
+               <|> uciIsReadyParser
+               <|> uciStopParser
+               <|> uciQuitParser
+               <|> uciGoParser
+               <|> uciPositionParser
 
 
 parseCommand :: String -> Maybe Command
-parseCommand line = case parse p_cmd "" line of
+parseCommand line = case parse uciCmdParser "" line of
                 Left _ -> Nothing
                 Right cmd -> Just cmd
 
 
+-- | The main IO () UCI loop. Talks to an UCI interface and drives the engine
 uci :: IO ()
 uci = do
     hSetBuffering stdout NoBuffering
     lastPosition <- newIORef mkSearchState
 
-    let dialogue lastPosition = do
+    let dialogue = do
                 line <- getLine
                 case parseCommand line of
                     Nothing -> return ()
                     Just cmd -> do 
                                     responses <- getResponse cmd
-                                    let output = intercalate "\n" $ map show $ responses
+                                    let output = intercalate "\n" $ map show responses
                                     putStrLn output
-                dialogue lastPosition
+                dialogue
                 where
-                    getResponse CmdUci = return [(RspId "name" "Chess"), (RspId "author" "Paul Sonkoly"), RspUciOk]
+                    getResponse CmdUci = return [RspId "name" "Chess", RspId "author" "Paul Sonkoly", RspUciOk]
                     getResponse CmdIsReady = return [RspReadyOk]
                     getResponse CmdUciNewGame = return []
                     getResponse CmdQuit = exitSuccess
@@ -131,4 +137,4 @@ uci = do
                       writeIORef lastPosition p'
                       let m = fromJust $ first pv
                       return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
-    dialogue lastPosition
+    dialogue
