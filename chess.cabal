@@ -14,24 +14,14 @@ category:            Game
 build-type:          Simple
 cabal-version:       >=1.9.2
 
-Flag Profiling
-  Description: Enable profiling
-  Default:     False
 
 executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
-  if flag(profiling)
-     ghc-options:         -Wall -fwarn-tabs -O2
-                          -funbox-strict-fields
-                          -rtsopts
-                          -prof -auto-all -osuf=_p.a
-                          -ddump-simpl -ddump-to-file
-  else
-     ghc-options:         -Wall -fwarn-tabs -O2
-                          -funbox-strict-fields
-                          -rtsopts
-  -- other-modules:       
+  extensions:          TemplateHaskell
+  ghc-options:         -Wall -fwarn-tabs -O2
+                       -funbox-strict-fields
+                       -rtsopts -auto-all
   build-depends:       base            ==4.6.*,
                        mtl             ==2.1.*,
                        ghc-prim,
