@@ -3,9 +3,7 @@
 https://chessprogramming.wikispaces.com/Killer+Heuristic.  This is
 called from the search iteration loop with updates, where a fail high
 node would cause the update. The store is queried before the iteration
-and moves are rearranged accordingly.  This should be avoided on
-quiscene searches, as a killer move usually supposed to be some quiet
-move.
+and moves are rearranged accordingly.
 
 Now it's also used to store PV between different depth of iterative
 depening.

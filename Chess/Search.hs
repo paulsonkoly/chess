@@ -213,7 +213,7 @@ negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta m
       nCnt += 1
       liftM (\b -> SearchResult [] $ c * evaluate b) $ use board
     else if d == 0
-          then quiscene alpha beta c
+          then quiscene mx d alpha beta c
           else do
             ml <- getMoveList mr moves
 
@@ -232,20 +232,27 @@ negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta m
 
 
 -- | quiscene search
-quiscene :: Int -> Int -> Int -> Search SearchResult
-quiscene alpha' beta' c = withTransPosCache 0 alpha' beta' $ \alpha beta mr -> do
+quiscene
+  :: Int -- ^ max depth
+  -> Int -- ^ depth
+  -> Int -- ^ alpha
+  -> Int -- ^ beta
+  -> Int -- ^ colour
+  -> Search SearchResult
+quiscene mx d alpha' beta' c = withTransPosCache 0 alpha' beta' $ \alpha beta mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   nCnt += 1
   if standPat >= beta
     then do
        b  <- use board
        tpc %= TPC.transPosCacheInsert b 0 TPC.Lower (SearchResult [] beta)
-       return $ SearchResult [] beta 
+       return $ SearchResult [] beta
     else do
        ml <- getMoveList mr forcingMoves
-       let mx = max alpha standPat
-       r <- iterateMoves ml 0 mx beta False $
-         \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene (-b) (-a) (-c))
+       let alpha'' = max alpha standPat
+       r <- withKiller ml mx d
+            $ \ml' ->  iterateMoves ml' 0 alpha'' beta False
+                       $ \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene mx (d - 1) (-b) (-a) (-c))
        return $ r^.line
 
 
