@@ -5,8 +5,6 @@ called from the search iteration loop with updates, where a fail high
 node would cause the update. The store is queried before the iteration
 and moves are rearranged accordingly.
 
-Now it's also used to store PV between different depth of iterative
-depening.
 -}
 
 module Chess.Killer
@@ -14,48 +12,70 @@ module Chess.Killer
        -- * Constructor
        , mkKiller
        -- * Data manipulation
-       , insertKiller
-       , insertPVInKiller
+       , insert
+       , clearLevel
        -- * Query
-       , killer
+       , heuristics
        ) where
 
 import qualified Data.Vector as V
 import           Data.Vector ((!), (//))
-import           Data.List (intersect, (\\))
+import           Data.List hiding (insert)
+import           Data.Function
 import           Chess.Move
 
-newtype Killer = Killer (V.Vector [ Move ])
+
+-- | The maximum depth we can handle
+maxKillerSize :: Int
+maxKillerSize = 30
+
+
+-- | The maximum entries per level
+maxLevelEntries :: Int
+maxLevelEntries = 2
+
+
+-- at a given depth entries are sorted by hit count in reverse order
+newtype Killer = Killer (V.Vector [ (Int, Move) ])
 
 
 mkKiller :: Killer
-mkKiller = Killer $ V.replicate 30 []
+mkKiller = Killer $ V.replicate maxKillerSize []
 
 
-insertKiller
-  :: Int    -- ^ distance from start depth ( or in other words real depth )
-  -> Maybe Move
+-- | inserts a Maybe Move - assuming that it's Just - to the store
+insert
+  :: Int         -- ^ distance from start depth ( or in other words real depth )
+  -> Maybe Move  -- ^ move to insert
   -> Killer
   -> Killer
-insertKiller d (Just m) (Killer v) = let o = filter (/= m) $ v ! d
-                                         t = if length o > 2 then init o else o
-                                     in Killer $ v // [ (d, m : t) ]
-insertKiller _ Nothing k = k 
+insert d (Just m) k@(Killer v)
+  | d >= maxKillerSize = k
+  | otherwise          = let e   = v ! d
+                             mix = findIndex ((== m) . snd) e
+                             nv  = case mix of
+                               -- e contains m therefore suf /= []
+                               Just ix -> let (pref, suf) = splitAt ix e
+                                              (oCnt, _)   = head suf
+                                          in pref ++ insertBy (compare `on` fst) (oCnt + 1, m) (tail suf)
+                               Nothing -> (1, m) : if length e >= maxLevelEntries
+                                                   then tail e
+                                                   else e
+                         in Killer $ v // [ (d, nv) ]
+insert _ Nothing k = k
 
 
--- | killer store from the PV
-insertPVInKiller :: [ Move ] -> Killer
-insertPVInKiller ml = let Killer k = mkKiller
-                      in Killer $ k // zipWith (\a b -> (a, [b])) [0, 1 ..] ml
+-- | Clears the specified depth of the store
+clearLevel :: Int -> Killer -> Killer
+clearLevel d (Killer v) = Killer $ v // [ (d, []) ]
 
 
--- the new move list with the heuristics applied
-killer
+-- | the new move list with the heuristics applied
+heuristics
   :: Int      -- ^ distance from start depth ( or in other words real depth )
   -> [ Move ] -- ^ previous move list
   ->  Killer
   -> [ Move ]
-killer d ms (Killer v) = let ixs = filter (>= 0) [ d, d + 2, d - 2 ]
-                             m   = concatMap (v !) ixs
-                             i   = intersect m ms
-                         in  i ++ (ms \\ i)
+heuristics d ms (Killer v) = let m   = map snd $ reverse $ v ! d
+                                 i   = intersect m ms
+                             in if d >= maxKillerSize then ms else i ++ (ms \\ i)
