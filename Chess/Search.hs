@@ -182,7 +182,7 @@ withPVStore ml mx d f = do
 {-# INLINE withPVStore #-}
 
 
- -- | iterates with a Maybe Move first
+-- | iterates with a Maybe Move first
 withMaybeMove
   :: [ Move ]   -- ^ move list
   -> Maybe Move -- ^ a good move if any ( from the tt )
