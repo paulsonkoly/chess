@@ -21,6 +21,7 @@ module Chess.Killer
 import qualified Data.Vector as V
 import           Data.Vector ((!), (//))
 import           Data.List hiding (insert)
+import           Data.List.Extras
 import           Data.Function
 import           Chess.Move
 
@@ -76,6 +77,7 @@ heuristics
   -> [ Move ] -- ^ previous move list
   ->  Killer
   -> [ Move ]
-heuristics d ms (Killer v) = let m   = map snd $ reverse $ v ! d
-                                 i   = intersect m ms
-                             in if d >= maxKillerSize then ms else i ++ (ms \\ i)
+heuristics d ms (Killer v) = let m   = map snd $ v ! d
+                                 -- the reverse order of the entries nicely matches toFront
+                                 ms' = foldl (flip toFront) ms m
+                             in if d >= maxKillerSize then ms else ms'

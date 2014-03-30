@@ -12,7 +12,7 @@ module Chess.PVStore
 
 import qualified Data.Vector as V
 import           Data.Vector ((!))
-import           Data.List hiding (insert)
+import           Data.List.Extras
 import           Chess.Move
 
 
@@ -42,9 +42,4 @@ heuristics
   -> [ Move ]
 heuristics d ml (PVStore v)
   | V.length v <= d = ml
-  | otherwise     = let m  = v ! d
-                        mm = elemIndex m ml
-                    in case mm of
-                      Just ix -> let (f, s) = splitAt ix ml
-                                 in m : f ++ tail s
-                      Nothing -> ml
+  | otherwise       = toFront (v ! d) ml

@@ -15,6 +15,7 @@ import           Control.Monad.State
 import           Control.Lens
 
 import           Data.ChessTypes
+import           Data.List.Extras
 import           Chess.Board
 import qualified Chess.TransPosCache as TPC
 import           Chess.TransPosCache (result, typ)
@@ -181,14 +182,26 @@ withPVStore ml mx d f = do
 {-# INLINE withPVStore #-}
 
 
+ -- | iterates with a Maybe Move first
+withMaybeMove
+  :: [ Move ]   -- ^ move list
+  -> Maybe Move -- ^ a good move if any ( from the tt )
+  -> ([Move] -> Search LoopResult)
+  -> Search LoopResult
+withMaybeMove ml (Just m) f = f (toFront m ml)
+withMaybeMove ml Nothing  f = f ml
+{-# INLINE withMaybeMove #-}
+
+
 -- | iterates with all store heuristics
 withStores
-  :: [ Move ] -- ^ move list
-  -> Int      -- ^ max depth
-  -> Int      -- ^ depth
+  :: [ Move ]   -- ^ move list
+  -> Maybe Move -- ^ a good move if any ( from the tt )
+  -> Int        -- ^ max depth
+  -> Int        -- ^ depth
   -> ( [Move] -> Search LoopResult )
   -> Search LoopResult
-withStores ml mx d f = withKiller ml mx d $ \ml' -> withPVStore ml' mx d f
+withStores ml mm mx d f = withKiller ml mx d $ \ml' -> withPVStore ml' mx d $ \ml'' -> withMaybeMove ml'' mm f
 {-# INLINE withStores #-}
 
 
@@ -245,9 +258,9 @@ negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta m
     else if d == 0
           then quiscene mx d alpha beta c
           else do
-            ml <- getMoveList mr moves
+            ml <- liftM moves $ use board
 
-            r <- withStores ml mx d
+            r <- withStores ml mr mx d
                  $ \ml' -> iterateMoves ml' d alpha beta (mx == d)
                            $ \f m a b -> withMove m
                                          $ m <++>
@@ -278,24 +291,14 @@ quiscene mx d alpha' beta' c = withTransPosCache 0 alpha' beta' $ \alpha beta mr
        tpc %= TPC.transPosCacheInsert b 0 TPC.Lower (SearchResult [] beta)
        return $ SearchResult [] beta
     else do
-       ml <- getMoveList mr forcingMoves
+       ml <- liftM forcingMoves $ use board
+
        let alpha'' = max alpha standPat
-       r <- withStores ml mx d
+       r <- withStores ml mr mx d
             $ \ml' ->  iterateMoves ml' 0 alpha'' beta False
                        $ \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene mx (d - 1) (-b) (-a) (-c))
        return $ r^.line
 
 
-
-getMoveList :: Maybe Move -> (Board -> [Move]) -> Search [Move]
-getMoveList mr mvs = liftM (addMaybeMove mr . mvs) $ use board
-{-# INLINE getMoveList #-}
-
-
 inf :: Int
 inf = maxBound
-
-
-addMaybeMove :: (Eq a) => Maybe a -> [a] -> [a]
-addMaybeMove mr l = maybe l (\m -> m : filter (/= m) l) mr
-{-# INLINE addMaybeMove #-}
