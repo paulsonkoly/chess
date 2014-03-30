@@ -18,7 +18,8 @@ import           Data.ChessTypes
 import           Chess.Board
 import qualified Chess.TransPosCache as TPC
 import           Chess.TransPosCache (result, typ)
-import           Chess.Killer
+import qualified Chess.Killer as K
+import qualified Chess.PVStore as PVS
 import           Chess.SearchResult (SearchResult(..), eval, first, renderVariation)
 import qualified Chess.SearchResult as SR ((<@>), (<++>), moves)
 import           Chess.Evaluation
@@ -27,7 +28,8 @@ import           Chess.Move
 data SearchState = SearchState
                    { _board    :: Board
                    , _tpc      :: TPC.TransPosCache
-                   , _kill     :: Killer
+                   , _kill     :: K.Killer
+                   , _pv       :: PVS.PVStore
                    , _tpcHit   :: ! Int
                    , _tpcMiss  :: ! Int
                    , _nCnt     :: ! Int                     
@@ -35,7 +37,7 @@ data SearchState = SearchState
 
 -- | Creates a search state with the initialBoard. Use the board Lens to manipulate the position in the SearchState
 mkSearchState :: SearchState
-mkSearchState = SearchState initialBoard TPC.mkTransPosCache mkKiller 0 0 0
+mkSearchState = SearchState initialBoard TPC.mkTransPosCache K.mkKiller PVS.mkPVStore 0 0 0
 
 
 $(makeLenses ''SearchState)
@@ -86,7 +88,7 @@ search d = do
   c <- liftM (\b -> direction (b^.next) 1) $ use board
   withIterativeDeepening d 1 $ \d' -> do
     r <- (c*) <@> negaScout d' d' (-inf) inf c
-    kill .= insertPVInKiller (r^.SR.moves)
+    pv  .= PVS.insert (r^.SR.moves)
     return r
 
 
@@ -155,11 +157,39 @@ withKiller
   -> ( [ Move ] -> Search LoopResult)
   -> Search LoopResult  
 withKiller ml mx d f = do
-  ml' <- liftM (killer (mx - d) ml) (use kill)
+  ml' <- liftM (K.heuristics (mx - d) ml) (use kill)
   lr@(LoopResult t res) <- f ml'
-  when (t == TPC.Lower) $ kill %= insertKiller (mx - d) (first res)
+  when (t == TPC.Lower) $ kill %= K.insert (mx - d) (first res)
+  kill %= K.clearLevel (mx - d + 1)
   return lr
 {-# INLINE withKiller #-}
+
+
+-- | iterates with PV store heuristics
+withPVStore
+  :: [ Move ] -- ^ move list
+  -> Int      -- ^ max depth
+  -> Int      -- ^ depth
+  -> ( [Move] -> Search LoopResult )
+  -> Search LoopResult
+withPVStore ml mx d f = do
+  ml' <- liftM (PVS.heuristics (mx - d) ml) (use pv)
+  r <- f ml'
+  -- after the leftmost iteration on the level truncate the PV up to the level
+  pv %= PVS.clearUpTo (mx - d)
+  return r
+{-# INLINE withPVStore #-}
+
+
+-- | iterates with all store heuristics
+withStores
+  :: [ Move ] -- ^ move list
+  -> Int      -- ^ max depth
+  -> Int      -- ^ depth
+  -> ( [Move] -> Search LoopResult )
+  -> Search LoopResult
+withStores ml mx d f = withKiller ml mx d $ \ml' -> withPVStore ml' mx d f
+{-# INLINE withStores #-}
 
 
 -- | iterates search on a move list
@@ -217,7 +247,7 @@ negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta m
           else do
             ml <- getMoveList mr moves
 
-            r <- withKiller ml mx d
+            r <- withStores ml mx d
                  $ \ml' -> iterateMoves ml' d alpha beta (mx == d)
                            $ \f m a b -> withMove m
                                          $ m <++>
@@ -250,7 +280,7 @@ quiscene mx d alpha' beta' c = withTransPosCache 0 alpha' beta' $ \alpha beta mr
     else do
        ml <- getMoveList mr forcingMoves
        let alpha'' = max alpha standPat
-       r <- withKiller ml mx d
+       r <- withStores ml mx d
             $ \ml' ->  iterateMoves ml' 0 alpha'' beta False
                        $ \ _ m a b -> withMove m $ m <++> (((-1)*) <@> quiscene mx (d - 1) (-b) (-a) (-c))
        return $ r^.line
