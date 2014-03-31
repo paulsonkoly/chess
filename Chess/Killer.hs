@@ -68,7 +68,9 @@ insert _ Nothing k = k
 
 -- | Clears the specified depth of the store
 clearLevel :: Int -> Killer -> Killer
-clearLevel d (Killer v) = Killer $ v // [ (d, []) ]
+clearLevel d k@(Killer v)
+  | d >= maxKillerSize = k
+  | otherwise          = Killer $ v // [ (d, []) ]
 
 
 -- | the new move list with the heuristics applied
