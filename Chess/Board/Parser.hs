@@ -1,5 +1,6 @@
 module Chess.Board.Parser
        ( parserBoard
+       , fromFEN
        ) where
 
 import           Control.Lens
@@ -14,6 +15,13 @@ import           Data.Square
 import           Data.BitBoard
 import           Data.ChessTypes
 import           Chess.Board.Board
+
+
+-- | reads a Board position from a FEN string
+fromFEN :: String -> Maybe Board
+fromFEN s = case parse parserBoard "" s of
+  Left _  -> Nothing
+  Right b -> Just b
 
 
 parserBoard :: Parser Board
