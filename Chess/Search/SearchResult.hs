@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Chess.SearchResult
+module Chess.Search.SearchResult
        ( SearchResult(..)
        , (<@>)
        , (<++>)

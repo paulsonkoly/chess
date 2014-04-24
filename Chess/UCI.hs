@@ -132,8 +132,8 @@ uci = do
                       return []
                     getResponse (CmdGo _) = do
                       p <- readIORef lastPosition
-                      (pv, p') <- runSearch (search 4) p
+                      (r, p') <- runSearch (search 6) p
                       writeIORef lastPosition p'
-                      let m = fromJust $ first pv
+                      let m = fromJust $ first r
                       return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
     dialogue

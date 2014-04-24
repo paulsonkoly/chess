@@ -34,7 +34,7 @@ import Data.Word
 import Data.Cache.LRU
 import Chess.Board
 import Chess.Move
-import Chess.SearchResult
+import Chess.Search.SearchResult
 
 
 data TransPosCacheEntryType = Exact | Lower | Upper deriving (Eq, Show)
@@ -55,7 +55,7 @@ type TransPosCache = LRU Word64 TransPosCacheEntry
 
 
 mkTransPosCache :: TransPosCache
-mkTransPosCache = newLRU $ Just $ 4 * 8192
+mkTransPosCache = newLRU $ Just $ 32 * 8192
 
 
 -- | Either a move recommendation or Nothing on miss or the cache entry with the updated LRU on hit
