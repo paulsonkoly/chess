@@ -5,7 +5,6 @@ module Chess.Evaluation
 import           Prelude hiding (concat, sum, elem)
 
 import           Control.Lens
-import           Control.Monad
 import           Data.Bits
 import           Data.Foldable
 import           Data.Monoid
@@ -19,22 +18,18 @@ import           Chess.Move
 import           Chess.Magic
 
 
-weights    = [ (90, Queen), (50, Rook), (30, Bishop), (30, Knight), (10, Pawn)  ]
-diffBB a b = popCount a - popCount b
-
-
 evaluate :: Board -> Int
 evaluate b = if not (anyMove b)
              then if inCheck b (b^.next)
                   then direction (b^.next) (-3000)
                   else 0
              else let material = sum [ w * (numberOf b White pt - numberOf b Black pt)
-                                     | (w, pt) <- weights
+                                     | pt <- [ Queen,  Rook, Bishop, Knight, Pawn ]
+                                     , let w = pieceValue pt
                                      ]
                   in material + sum [ f b White - f b Black
                                     | f <- [ evaluateRookPosition
                                            , evaluateKingSafety
---                                         , evaluatePins
                                            , evaluateBishopPosition
                                            , evaluateKnightPosition
                                            , evaluatePawnPosition
@@ -56,19 +51,6 @@ evaluateKingSafety b col = let kingSq           = head $ BB.toList $ piecesOf b 
                            in defendingPawns - attackingKnights - rayAttacks
 
 
-evaluatePins :: Board -> Colour -> Int
-evaluatePins b col = (-3) * if opening b
-                            then 0
-                            else sum $ do
-                              pt      <- [ Queen, King ]
-                              pinnert <- [ Queen, Rook, Bishop ]
-                              guard $ pinnert /= Queen || pt == King -- otherwise not a real pin
-                              pinner  <- BB.toList $ piecesOf b (opponent' col) pinnert
-                                   
-                              let ocpy   = b^.piecesByColour (opponent' col)
-                                  attck  = magic pinnert pinner ocpy
-                              return $ popCount $ piecesOf b col pt .&. attck
-                        
 
 evaluateRookPosition :: Board -> Colour -> Int
 evaluateRookPosition b col = let mySeventh = if col == White then seventhRank else secondRank
@@ -94,9 +76,6 @@ evaluateBishopPosition b col = evalFor darkSquares + evalFor lightSquares
 evaluateKnightPosition :: Board -> Colour -> Int
 evaluateKnightPosition b col = (-2) * popCount (rimSquares .&. piecesOf b col Knight)
 
-
-opening :: Board -> Bool
-opening b = popCount (occupancy b) > 26
 
   
 endGame :: Board -> Bool

@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell  #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# OPTIONS_GHC -fno-warn-unused-binds #-}
 
 {- | The magic bit board database
 
