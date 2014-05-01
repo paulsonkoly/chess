@@ -61,4 +61,4 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
                           , char 'Q' >> go' ((_1 <>~ fromCastle Long) p)
                           , return p
                           ]
-    transEnp sq = offset sq (if fromEnum (rank sq) == 2 then 1 else (-1))
+    transEnp sq = offset sq (if rank sq == secondRank then 8 else (-8))
