@@ -1,6 +1,7 @@
 module Chess.Move.Execute
        ( makeMove
        , makeMoveSimplified
+       , calcHash
        ) where
 
 import           Control.Lens hiding (to, from)

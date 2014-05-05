@@ -25,16 +25,16 @@ module Chess.TransPosCache
        -- * Utils
        , transPosCacheLookUp
        , transPosCacheInsert
+--       , transPosCacheDeflate
        ) where
 
-import Prelude hiding (lookup)
-
-import Control.Lens
-import Data.Word       
-import Data.Cache.LRU
 import Chess.Board
 import Chess.Move
 import Chess.Search.SearchResult
+import Control.Lens
+import Data.Cache.LRU
+import Data.Word
+import Prelude                   hiding (lookup)
 
 
 data TransPosCacheEntryType = Exact | Lower | Upper deriving (Eq, Show)
@@ -54,8 +54,12 @@ $(makeLenses ''TransPosCacheEntry)
 type TransPosCache = LRU Word64 TransPosCacheEntry
 
 
+lruSize :: Maybe Integer
+lruSize = Just $ 32 * 8192
+
+
 mkTransPosCache :: TransPosCache
-mkTransPosCache = newLRU $ Just $ 32 * 8192
+mkTransPosCache = newLRU lruSize
 
 
 -- | Either a move recommendation or Nothing on miss or the cache entry with the updated LRU on hit
@@ -86,3 +90,8 @@ transPosCacheInsert b d t r cache = let eold = transPosCacheLookUp b d cache
                                     in case eold of
                                       Right _ -> cache
                                       Left  _ -> insert (b^.hash) (TPCE b d r t) cache
+
+
+-- | decreases the depth of each entry by 1
+-- transPosCacheDeflate :: TransPosCache -> TransPosCache
+-- transPosCacheDeflate = fromList lruSize . (map  (_2 . depth %~ pred)) . toList

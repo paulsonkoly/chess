@@ -23,6 +23,7 @@ executable chess
                        -funbox-strict-fields
                        -rtsopts -auto-all
   build-depends:       base            < 5,
+                       stm             ==2.4.*,
                        mtl             ==2.1.*,
                        ghc-prim,
                        template-haskell < 3,

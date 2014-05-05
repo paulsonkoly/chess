@@ -2,19 +2,21 @@ module Chess.UCI
        ( uci
        ) where
 
-import           Control.Lens hiding (from, to)
-import           Control.Applicative (liftA)
-import           Data.List
-import           Data.IORef
-import           System.Exit
-import           Data.Maybe
-import           System.IO
-
-import           Text.ParserCombinators.Parsec
-
-import           Chess.Move
-import           Chess.Board
-import           Chess.Search
+import Chess.Board hiding (hash)
+import Chess.Move
+import Chess.Search
+import qualified Chess.Search as S (aborted)
+import Control.Applicative ((<$>), liftA)
+import Control.Concurrent (forkIO)
+import Control.Concurrent.STM
+import Control.Lens hiding (from, to)
+import Control.Monad (forever, join, void, when)
+import Data.IORef
+import Data.List
+import Data.Maybe
+import System.Exit
+import System.IO
+import Text.ParserCombinators.Parsec
 
 
 data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
@@ -67,11 +69,11 @@ uciIntParser = liftA read $ many1 digit
 
 uciGoParser :: Parser Command
 uciGoParser = do
-                string "go" >> spaces
-                mbTimeout <- optionMaybe (string "movetime" >> spaces >> uciIntParser)
-                return $ case mbTimeout of
-                            Nothing -> CmdGo Infinity
-                            Just timeout -> CmdGo $ MovetimeMsc timeout
+  string "go" >> spaces
+  mbTimeout <- optionMaybe (string "movetime" >> spaces >> uciIntParser)
+  return $ case mbTimeout of
+             Nothing -> CmdGo Infinity
+             Just timeout -> CmdGo $ MovetimeMsc timeout
                     
     
 uciPositionParser :: CharParser () Command
@@ -102,38 +104,60 @@ uciCmdParser = try uciNewGameParser
 
 parseCommand :: String -> Maybe Command
 parseCommand line = case parse uciCmdParser "" line of
-                Left _ -> Nothing
-                Right cmd -> Just cmd
+                      Left _ -> Nothing
+                      Right cmd -> Just cmd
 
 
 -- | The main IO () UCI loop. Talks to an UCI interface and drives the engine
 uci :: IO ()
 uci = do
-    hSetBuffering stdout NoBuffering
-    lastPosition <- newIORef mkSearchState
+  hSetBuffering stdout NoBuffering
+  a  <- newTVarIO False
+  st <- newIORef $ mkSearchState a
+  pondering <- newIORef $ False
 
-    let dialogue = do
-                line <- getLine
-                case parseCommand line of
-                    Nothing -> return ()
-                    Just cmd -> do 
-                                    responses <- getResponse cmd
-                                    let output = intercalate "\n" $ map show responses
-                                    putStrLn output
-                dialogue
-                where
-                    getResponse CmdUci = return [RspId "name" "Chess", RspId "author" "Paul Sonkoly", RspUciOk]
-                    getResponse CmdIsReady = return [RspReadyOk]
-                    getResponse CmdUciNewGame = return []
-                    getResponse CmdQuit = exitSuccess
-                    getResponse CmdStop = return []
-                    getResponse (CmdPosition pos) = do
-                      modifyIORef lastPosition (board .~ pos)
-                      return []
-                    getResponse (CmdGo _) = do
-                      p <- readIORef lastPosition
-                      (r, p') <- runSearch (search 6) p
-                      writeIORef lastPosition p'
-                      let m = fromJust $ first r
-                      return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
-    dialogue
+  forever $ do
+        line <- getLine
+        case parseCommand line of
+          Nothing -> return ()
+          Just cmd -> do 
+              abort pondering a
+              responses <- getResponse cmd st pondering
+              let output = intercalate "\n" $ map show responses
+              putStrLn output
+
+   where getResponse CmdUci             _ _ = return [RspId "name" "Chess", RspId "author" "Paul Sonkoly", RspUciOk]
+         getResponse CmdIsReady         _ _ = return [RspReadyOk]
+         getResponse CmdUciNewGame      _ _ = return []
+         getResponse CmdQuit            _ _ = exitSuccess
+         getResponse CmdStop            _ _ = return []
+         getResponse (CmdPosition pos) st _ = do
+              modifyIORef st (board .~ pos)
+              return []
+         getResponse (CmdGo _)        st pondering = do
+              p <- readIORef st
+              (r, p') <- runSearch (search 6) ((quiet .~ False) p)
+              let m   = fromJust $ join $ first <$> r
+                  p'' = (board %~ makeMove m) p'
+              writeIORef st p''
+              ponder pondering st
+              return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
+
+         ponder pondering st = void $ do
+           writeIORef pondering True
+           forkIO $ do
+             p <- readIORef st
+             (_, p') <- runSearch (search maxBound) $ (quiet .~ True) p
+             writeIORef st p'
+             atomically $ writeTVar (p'^.S.aborted) False
+             writeIORef pondering False
+
+         abort pondering a = do
+              p <- readIORef pondering
+              when p $ do
+                atomically $ writeTVar a True
+                atomically $ do
+                         av <- readTVar a
+                         when av retry
+
+

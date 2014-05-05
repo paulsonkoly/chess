@@ -3,10 +3,12 @@
 module Chess.Search.Search
   ( Search
   , runSearch
+  , report
   ) where
 
 import Control.Monad.State
 import Chess.Search.SearchState
+import Control.Lens ((^.))
 
 
 -- | Type representing a Search action
@@ -29,3 +31,9 @@ instance MonadIO Search where
 instance MonadState SearchState Search where
   get = Search get
   put = Search . put
+
+
+report :: String -> Search ()
+report s = do
+  r <- get
+  when (not $ r^.quiet) $ liftIO $ putStrLn $ "info " ++ s

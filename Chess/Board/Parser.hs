@@ -3,18 +3,16 @@ module Chess.Board.Parser
        , fromFEN
        ) where
 
-import           Control.Lens
-import           Control.Monad
-import           Text.ParserCombinators.Parsec
-
-import           Data.Monoid
-import           Data.Functor
-import           Data.Char
-
-import           Data.Square
-import           Data.BitBoard
-import           Data.ChessTypes
-import           Chess.Board.Board
+import Chess.Board.Board
+import Control.Lens
+import Control.Monad
+import Data.BitBoard
+import Data.Char
+import Data.ChessTypes
+import Data.Functor
+import Data.Monoid
+import Data.Square
+import Text.ParserCombinators.Parsec
 
 
 -- | reads a Board position from a FEN string
@@ -62,3 +60,4 @@ parserBoard = liftM (\b -> (hash .~ calcHash b) b) $ do
                           , return p
                           ]
     transEnp sq = offset sq (if rank sq == secondRank then 8 else (-8))
+

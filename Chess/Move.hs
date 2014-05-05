@@ -8,14 +8,13 @@ module Chess.Move
    )
    where
 
-import           Control.Lens
-
-import           Chess.Move.Move as M
-import           Chess.Move.Execute as M
-import           Chess.Move.Generator as M
-
-import           Chess.Board
-import           Data.BitBoard
+import Chess.Board
+import qualified Chess.Board as B (calcHash)
+import Chess.Move.Execute    as M
+import Chess.Move.Generator  as M
+import Chess.Move.Move       as M
+import Control.Lens
+import Data.BitBoard
 
 
 prop_MoveBoardAfter :: Board -> Bool
@@ -33,6 +32,6 @@ prop_numberOfKings b = all prop_BoardKingNum [ makeMove m b | m <- moves b ]
 
 
 prop_zobrist :: Board -> Bool
-prop_zobrist b = let b' = (hash .~ calcHash b) b
+prop_zobrist b = let b' = (hash .~ B.calcHash b) b
                      bs = [ makeMove m b' | m <- moves b']
-                 in all (\b'' -> calcHash b'' == b''^.hash) bs
+                 in all (\b'' -> B.calcHash b'' == b''^.hash) bs
