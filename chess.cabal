@@ -22,10 +22,10 @@ executable chess
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts -auto-all
-  build-depends:       base            ==4.6.*,
+  build-depends:       base            < 5,
                        mtl             ==2.1.*,
                        ghc-prim,
-                       template-haskell==2.8.*,
+                       template-haskell < 3,
                        lens            ==4.1.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
@@ -35,7 +35,7 @@ executable chess
                        containers      ==0.5.*,
                        parsec          ==3.1.*,
                        lrucache        ==1.1.*,
-                       QuickCheck      ==2.6.*
+                       QuickCheck      >= 2.6 && < 2.8
 
 
 Test-Suite perft
@@ -45,10 +45,10 @@ Test-Suite perft
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts
-  build-depends:       base            ==4.6.*,
+  build-depends:       base            < 5,
                        mtl             ==2.1.*,
                        ghc-prim,
-                       template-haskell==2.8.*,
+                       template-haskell < 3,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
                        lens            ==4.1.*,
@@ -59,7 +59,7 @@ Test-Suite perft
                        vector-th-unbox ==0.2.0.1,
                        parsec          ==3.1.*,
                        optparse-applicative == 0.7.*,
-                       QuickCheck      ==2.6.*
+                       QuickCheck      >= 2.6 && < 2.8
 
 
 Test-Suite suite
@@ -69,10 +69,10 @@ Test-Suite suite
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts
-  build-depends:       base            ==4.6.*,
+  build-depends:       base            < 5,
                        mtl             ==2.1.*,
                        ghc-prim,
-                       template-haskell==2.8.*,
+                       template-haskell < 3,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
                        lens            ==4.1.*,
@@ -82,6 +82,6 @@ Test-Suite suite
                        vector          ==0.10.*,
                        vector-th-unbox ==0.2.0.1,
                        parsec          ==3.1.*,
-                       QuickCheck      ==2.6.*,
+                       QuickCheck      >= 2.6 && < 2.8,
                        test-framework  ==0.8.*,
                        test-framework-quickcheck2 == 0.3.*
