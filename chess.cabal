@@ -19,7 +19,7 @@ executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
   extensions:          TemplateHaskell
-  ghc-options:         -Wall -fwarn-tabs -O2
+  ghc-options:         -Wall -fwarn-tabs -O0
                        -funbox-strict-fields
                        -rtsopts -auto-all
   build-depends:       base            < 5,
@@ -42,7 +42,7 @@ Test-Suite perft
   type:                exitcode-stdio-1.0
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
+  ghc-options:         -Wall -fwarn-tabs -O0
                        -funbox-strict-fields
                        -rtsopts
   build-depends:       base            < 5,
@@ -66,7 +66,7 @@ Test-Suite suite
   type:                exitcode-stdio-1.0
   main-is:             Test/Suite/Main.hs
   hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O2
+  ghc-options:         -Wall -fwarn-tabs -O0
                        -funbox-strict-fields
                        -rtsopts
   build-depends:       base            < 5,
