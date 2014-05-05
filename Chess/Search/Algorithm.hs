@@ -9,7 +9,7 @@ import           Chess.Move
 import qualified Chess.PVStore as PVS
 import           Chess.Search.Search
 import qualified Chess.Search.SearchResult as SR ((<@>), (<++>), moves)
-import           Chess.Search.SearchResult hiding (moves)
+import           Chess.Search.SearchResult hiding (moves, (<@>), (<++>))
 import           Chess.Search.SearchState
 import           Chess.TransPosCache (typ, result)
 import qualified Chess.TransPosCache as TPC
