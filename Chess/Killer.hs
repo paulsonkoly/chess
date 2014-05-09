@@ -44,13 +44,13 @@ mkKiller :: Killer
 mkKiller = Killer $ V.replicate maxKillerSize []
 
 
--- | inserts a Maybe Move - assuming that it's Just - to the store
+-- | inserts a Move to the store
 insert
-  :: Int         -- ^ distance from start depth ( or in other words real depth )
-  -> Maybe Move  -- ^ move to insert
+  :: Int   -- ^ distance from start depth ( or in other words real depth )
+  -> Move  -- ^ move to insert
   -> Killer
   -> Killer
-insert d (Just m) k@(Killer v)
+insert d m k@(Killer v)
   | d >= maxKillerSize = k
   | otherwise          = let e   = v ! d
                              mix = findIndex ((== m) . snd) e
@@ -63,7 +63,7 @@ insert d (Just m) k@(Killer v)
                                                    then tail e
                                                    else e
                          in Killer $ v // [ (d, nv) ]
-insert _ Nothing k = k
+
 
 
 -- | Clears the specified depth of the store

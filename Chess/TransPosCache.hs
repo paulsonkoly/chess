@@ -20,30 +20,32 @@ module Chess.TransPosCache
        -- * Lenses
        , board
        , depth
-       , result
+       , score
        , typ
        -- * Utils
        , transPosCacheLookUp
        , transPosCacheInsert
---       , transPosCacheDeflate
        ) where
 
 import Chess.Board
 import Chess.Move
-import Chess.Search.SearchResult
 import Control.Lens
 import Data.Cache.LRU
 import Data.Word
 import Prelude                   hiding (lookup)
 
 
-data TransPosCacheEntryType = Exact | Lower | Upper deriving (Eq, Show)
+-- | An exact lookup always contains at least one move. A lower bound
+-- cut contains just one move.
+data TransPosCacheEntryType = Exact Move [Move]
+                            | Lower Move
+                            | Upper deriving (Eq, Show)
 
 
 data TransPosCacheEntry = TPCE
                           { _board      :: Board
                           , _depth      :: ! Int
-                          , _result     :: ! SearchResult
+                          , _score      :: ! Int
                           , _typ        :: ! TransPosCacheEntryType
                           }
 
@@ -73,7 +75,10 @@ transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
                                   Just val -> if b == val^.board
                                               then if val^.depth >= d
                                                    then Right (cache', val)
-                                                   else Left $ first $ val^.result
+                                                   else case val^.typ of
+                                                     Exact m _ -> Left $ Just m
+                                                     Lower m   -> Left $ Just m
+                                                     _         -> Left Nothing
                                               else Left Nothing
                                   Nothing  -> Left Nothing
 
@@ -82,16 +87,11 @@ transPosCacheLookUp b d cache = let (cache', mval) = lookup (b^.hash) cache
 transPosCacheInsert
   :: Board                  -- ^ board
   -> Int                    -- ^ depth
+  -> Int                    -- ^ score
   -> TransPosCacheEntryType -- ^ type
-  -> SearchResult           -- ^ stored result
   -> TransPosCache
   -> TransPosCache
-transPosCacheInsert b d t r cache = let eold = transPosCacheLookUp b d cache
+transPosCacheInsert b d s t cache = let eold = transPosCacheLookUp b d cache
                                     in case eold of
                                       Right _ -> cache
-                                      Left  _ -> insert (b^.hash) (TPCE b d r t) cache
-
-
--- | decreases the depth of each entry by 1
--- transPosCacheDeflate :: TransPosCache -> TransPosCache
--- transPosCacheDeflate = fromList lruSize . (map  (_2 . depth %~ pred)) . toList
+                                      Left  _ -> insert (b^.hash) (TPCE b d s t) cache
