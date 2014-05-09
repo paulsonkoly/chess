@@ -4,11 +4,14 @@ module Chess.Search.Search
   ( Search
   , runSearch
   , report
+  , abortable
   ) where
 
 import Control.Monad.State
 import Chess.Search.SearchState
 import Control.Lens ((^.))
+import Control.Lens (use)
+import Control.Concurrent.STM (readTVarIO)
 
 
 -- | Type representing a Search action
@@ -37,3 +40,11 @@ report :: String -> Search ()
 report s = do
   r <- get
   when (not $ r^.quiet) $ liftIO $ putStrLn $ "info " ++ s
+
+
+
+abortable :: Search (Maybe a) -> Search (Maybe a)
+abortable f = do
+  abortedtv <- use aborted
+  abort     <- liftIO $ readTVarIO abortedtv
+  if abort then return Nothing else f

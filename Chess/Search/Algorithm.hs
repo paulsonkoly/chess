@@ -18,10 +18,9 @@ import           Chess.Search.SearchState
 import qualified Chess.Search.SearchState  as SS (hash)
 import qualified Chess.TransPosCache       as TPC
 import           Control.Applicative       ((<$>))
-import           Control.Concurrent.STM    (readTVarIO)
 import           Control.Lens              ((+=), (.=), (^.), (%=), use)
 import           Control.Monad             (liftM, when)
-import           Control.Monad.State       (get, liftIO)
+import           Control.Monad.State       (get)
 import           Data.ChessTypes
 import           Data.Foldable             (forM_)
 import           Data.List.Extras
@@ -214,12 +213,7 @@ iterateMoves ml d alpha beta rep ac = do
   return $ mlr
 
   where go _ l [] = return $ Just l
-        go f prev (m:ms) = do
-          abortedtv <- use aborted
-          abort     <- liftIO $ readTVarIO abortedtv
-          if abort
-          then return Nothing
-          else do
+        go f prev (m:ms) = abortable $ do
             let prevVal = score prev
             mnxt <- ac f m prevVal beta
             maybe (return Nothing)
