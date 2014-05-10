@@ -25,6 +25,7 @@ module Chess.TransPosCache
        -- * Utils
        , transPosCacheLookUp
        , transPosCacheInsert
+       , transPosCacheDeflate
        ) where
 
 import Chess.Board
@@ -95,3 +96,11 @@ transPosCacheInsert b d s t cache = let eold = transPosCacheLookUp b d cache
                                     in case eold of
                                       Right _ -> cache
                                       Left  _ -> insert (b^.hash) (TPCE b d s t) cache
+
+
+-- | decreases the depth of each entry by 2 and drops the entries flowing over the given value
+transPosCacheDeflate :: Int -> TransPosCache -> TransPosCache
+transPosCacheDeflate i = let inc    = _2 . depth %~ (+2)
+                             cond x = x^.(_2 . depth) <= i
+                         in fromList lruSize . filter cond . map inc . toList
+

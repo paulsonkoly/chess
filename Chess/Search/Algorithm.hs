@@ -43,7 +43,7 @@ search d = do
   tpcHit   .= 0
   tpcMiss  .= 0
   nCnt     .= 0
---  tpc      %= TPC.transPosCacheDeflate
+  tpc      %= TPC.transPosCacheDeflate d
   mPonderHit <- use previous
   b          <- use board
   s <- if maybe False (\ph -> b^.B.hash == ph^.SS.hash) mPonderHit
@@ -203,7 +203,7 @@ iterateMoves
   -> (Bool -> Move -> Int -> Int -> Search (Maybe SearchResult)) -- ^ True is fed in in the first iteration (for negascout)
   -> Search (Maybe LoopResult)
 iterateMoves ml d alpha beta rep ac = do
-  mlr <- go True (Cacheable alpha TPC.Upper) ml
+  mlr <- go (0::Int) (Cacheable alpha TPC.Upper) ml
   forM_ mlr $ \lr -> do
     case lr of
       Cacheable s t -> do
@@ -213,9 +213,9 @@ iterateMoves ml d alpha beta rep ac = do
   return $ mlr
 
   where go _ l [] = return $ Just l
-        go f prev (m:ms) = abortable $ do
+        go n prev (m:ms) = abortable $ do
             let prevVal = score prev
-            mnxt <- ac f m prevVal beta
+            mnxt <- ac (n == 0) m prevVal beta
             maybe (return Nothing)
                   (\nxt -> if
                        | nxt^.eval >= beta   -> return $ Just $ Cacheable beta (TPC.Lower m)
@@ -223,8 +223,10 @@ iterateMoves ml d alpha beta rep ac = do
                                                            then Mere (nxt^.eval)
                                                            else Cacheable (nxt^.eval) (TPC.Exact (head $ nxt^.SR.moves)
                                                                                                  (tail $ nxt^.SR.moves))
-                                                in info nxt m >> go False this ms
-                       | otherwise           -> go False prev ms)
+                                                in info nxt m >> go (n+1) this ms
+                       | otherwise           -> do
+                                                  when rep $ report $ "currmove " ++ renderShortMove m ++ " currmovenumber " ++ (show n)
+                                                  go (n+1) prev ms)
                   mnxt
 
         info sr m = when rep $ do
