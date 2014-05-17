@@ -6,16 +6,13 @@ module Chess.Search.SearchResult
        , (<++>)
        , first
        , second
-       , shift
        , eval
        , moves
-       , renderVariation
        ) where
 
 import           Control.Lens
 import           Control.Monad
 import           Data.Maybe
-import Data.List.Extras
 
 import qualified Chess.Move as M
 
@@ -50,12 +47,3 @@ second sr = case sr^.moves of
   _:m:_ -> Just m
   _     -> Nothing
 
-
--- | Removes the first move
-shift :: SearchResult -> SearchResult
-shift = (moves %~ safeTail)
-  
-
--- | UCI string for a SearchResult
-renderVariation :: SearchResult -> String
-renderVariation sr = show (sr^.eval) ++ " " ++ unwords (map M.renderShortMove (sr^.moves))

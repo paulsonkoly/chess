@@ -1,7 +1,6 @@
 {- | Some additional list functions we miss from Data.List -}
 module Data.List.Extras
        ( toFront
-       , safeTail
        ) where
 
 
@@ -18,10 +17,3 @@ toFront a as = let mix = elemIndex a as
                             in a : f ++ tail s
                  Nothing -> as
 {-# INLINE toFront #-}
-
-
--- | same as tail except safeTail [] = []
-safeTail :: [a] -> [a]
-safeTail []     = []
-safeTail (_:as) = as
-{-# INLINE safeTail #-}

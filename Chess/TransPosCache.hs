@@ -9,7 +9,7 @@
   The are no entries with only the depth differing. Therefore inserting the same
   position with different depth updates the previous entry. Also EXACT entry wins
   over LOWER or UPPER.
-  For more info see http://chessprogramming.wikispaces.com/Transposition+Table.
+  For more info see <http://chessprogramming.wikispaces.com/Transposition+Table>.
 -}
 module Chess.TransPosCache
        ( TransPosCache
@@ -99,8 +99,6 @@ transPosCacheInsert b d s t cache = let eold = transPosCacheLookUp b d cache
 
 
 -- | decreases the depth of each entry by 2 and drops the entries flowing over the given value
-transPosCacheDeflate :: Int -> TransPosCache -> TransPosCache
-transPosCacheDeflate i = let inc    = _2 . depth %~ (+2)
-                             cond x = x^.(_2 . depth) <= i
-                         in fromList lruSize . filter cond . map inc . toList
+transPosCacheDeflate :: TransPosCache -> TransPosCache
+transPosCacheDeflate = fromList lruSize . map (_2 . depth %~ pred)  . toList
 

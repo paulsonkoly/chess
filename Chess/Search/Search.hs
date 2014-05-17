@@ -9,7 +9,6 @@ module Chess.Search.Search
 
 import Control.Monad.State
 import Chess.Search.SearchState
-import Control.Lens ((^.))
 import Control.Lens (use)
 import Control.Concurrent.STM (readTVarIO)
 
@@ -37,9 +36,7 @@ instance MonadState SearchState Search where
 
 
 report :: String -> Search ()
-report s = do
-  r <- get
-  when (not $ r^.quiet) $ liftIO $ putStrLn $ "info " ++ s
+report = liftIO . putStrLn . ("info " ++)
 
 
 

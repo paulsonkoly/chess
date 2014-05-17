@@ -5,17 +5,14 @@ module Chess.Search.Algorithm
        ) where
 
 import           Chess.Board
-import qualified Chess.Board as B (hash)
 import           Chess.Evaluation
 import qualified Chess.Killer              as K
 import           Chess.Move
-import qualified Chess.Move                as M (calcHash)
 import qualified Chess.PVStore             as PVS
 import           Chess.Search.Search
 import qualified Chess.Search.SearchResult as SR (moves)
 import           Chess.Search.SearchResult hiding (moves)
 import           Chess.Search.SearchState
-import qualified Chess.Search.SearchState  as SS (hash)
 import qualified Chess.TransPosCache       as TPC
 import           Control.Applicative       ((<$>))
 import           Control.Lens              ((+=), (.=), (^.), (%=), use)
@@ -24,10 +21,10 @@ import           Control.Monad.State       (get)
 import           Data.ChessTypes
 import           Data.Foldable             (forM_)
 import           Data.List.Extras
-import           Data.Maybe                (fromJust)
 
 
 data LoopResult = Mere { score :: Int } | Cacheable { score :: Int, entry :: TPC.TransPosCacheEntryType }
+
 
 loopResultToSearchResult :: LoopResult -> SearchResult
 loopResultToSearchResult (Mere i)                       = SearchResult [] i
@@ -37,40 +34,40 @@ loopResultToSearchResult (Cacheable i TPC.Upper)        = SearchResult [] i
 
 -- | top level search
 search
-  :: Int -- ^ depth
+  :: Int  -- ^ depth
+  -> Bool -- ^ ponderhit
   -> Search (Maybe SearchResult)
-search d = do
-  tpcHit   .= 0
-  tpcMiss  .= 0
-  nCnt     .= 0
-  tpc      %= TPC.transPosCacheDeflate d
-  mPonderHit <- use previous
+search d ponderHit = do
+  tpcHit     .= 0
+  tpcMiss    .= 0
+  nCnt       .= 0
+  tpc        %= TPC.transPosCacheDeflate -- d
+  pv         .= PVS.mkPVStore
+  kill       .= K.mkKiller
   b          <- use board
-  s <- if maybe False (\ph -> b^.B.hash == ph^.SS.hash) mPonderHit
-       then do
-         let ph = fromJust mPonderHit
-         report $ "ponderhit @ " ++ (show $ ph^.depth) ++ " " ++ (renderVariation (ph^.result))
-         pv  .= PVS.insert (ph^.result^.SR.moves)
-         return $ (ph^.depth)
-       else do
-         report $ "pondermiss"
-         return 1
+  (startDepth, mbResult) <- if ponderHit
+                            then do
+                              mbPonder <- use previous
+                              maybe (return (1, Nothing))
+                                    (\ponder -> do
+                                        pv .= PVS.insert (ponder^.result^.SR.moves)
+                                        return (ponder^.depth, Just $ ponder^.result))
+                                    mbPonder
+                            else return (1, Nothing)
+  -- to avoid the race condition if we receive ponderhit before storing the first level
+  previous .= Nothing
 
-  let c = direction (b^.next) 1
-  r <- withIterativeDeepening d s $ \d' -> do
-       r' <- (c*) <@> negaScout d' d' (-inf) inf c
-       forM_ r' $ \r'' -> do
-         pv .= PVS.insert (r''^.SR.moves)
-         case M.calcHash b <$> (first r'') of
-           Just h -> do
-                   previous .= (Just $ Previous
-                                { _depth = d' - 2
-                                , _result = shift r''
-                                , _hash = h
-                                })
-           Nothing -> return ()
-       return r'
-  return r
+  if startDepth >= d
+    then return mbResult
+    else do
+      let c = direction (b^.next) 1
+      withIterativeDeepening d startDepth $ \d' -> do
+        mbR <- (c*) <@> negaScout d' d' (-inf) inf c
+        forM_ mbR $ \r -> do
+          pv .= PVS.insert (r^.SR.moves)
+          previous .= Just Previous { _depth = d', _result = r}
+        return mbR
+
 
 
 -- | searches with iterative deepening
@@ -89,6 +86,16 @@ withIterativeDeepening mx d s = do
         r
 
 
+info :: Int -> SearchResult -> Search ()
+info d sr = do
+  st <- get
+  let s = "depth "        ++ show d
+          ++ " score cp " ++ show (10 * sr^.eval)
+          ++ " nodes "    ++ show (st^.nCnt)
+          ++ " pv "       ++ unwords (map renderShortMove (sr^.SR.moves))
+  report s
+
+
 -- | executes search action with a moved played
 withMove :: Move -> Search a -> Search a
 withMove m ac = do
@@ -102,12 +109,13 @@ withMove m ac = do
 
 -- | executes a search action with a transpositional cache lookup
 withTransPosCache
-  :: Int -- ^ depth
+  :: Int -- ^ max depth
+  -> Int -- ^ depth
   -> Int -- ^ alpha
   -> Int -- ^ beta
   -> (Int -> Int -> Maybe Move -> Search (Maybe SearchResult))
   -> Search (Maybe SearchResult)
-withTransPosCache d alpha beta f = do
+withTransPosCache mx d alpha beta f = do
   b <- use board
   t <- use tpc
 
@@ -118,7 +126,8 @@ withTransPosCache d alpha beta f = do
       tpcHit += 1
       case e^.TPC.typ of
 
-        TPC.Exact m ms -> return $ Just $ SearchResult (m:ms) (e^.TPC.score)
+        TPC.Exact m ms -> let sr = SearchResult (m:ms) (e^.TPC.score)
+                          in when (d == mx) (info d sr) >> return (Just sr)
 
         TPC.Lower m    -> let alpha' = max alpha $ e^.TPC.score
                           in if alpha' >= beta
@@ -204,15 +213,14 @@ iterateMoves
   -> Search (Maybe LoopResult)
 iterateMoves ml d alpha beta rep ac = do
   mlr <- go (0::Int) (Cacheable alpha TPC.Upper) ml
-  forM_ mlr $ \lr -> do
-    case lr of
-      Cacheable s t -> do
-        b <- use board
-        tpc %= TPC.transPosCacheInsert b d s t
-      _ -> return ()
-  return $ mlr
+  forM_ mlr $ \lr -> case lr of
+    Cacheable s t -> do
+      b <- use board
+      tpc %= TPC.transPosCacheInsert b d s t
+    _ -> return ()
+  return mlr
 
-  where go _ l [] = return $ Just l
+  where go _ prev [] = return (Just prev)
         go n prev (m:ms) = abortable $ do
             let prevVal = score prev
             mnxt <- ac (n == 0) m prevVal beta
@@ -223,26 +231,18 @@ iterateMoves ml d alpha beta rep ac = do
                                                            then Mere (nxt^.eval)
                                                            else Cacheable (nxt^.eval) (TPC.Exact (head $ nxt^.SR.moves)
                                                                                                  (tail $ nxt^.SR.moves))
-                                                in info nxt m >> go (n+1) this ms
+                                                in when rep (info d nxt) >> go (n+1) this ms
                        | otherwise           -> do
-                                                  when rep $ report $ "currmove " ++ renderShortMove m ++ " currmovenumber " ++ (show n)
+                                                  when rep $ report $ "currmove " ++ renderShortMove m ++ " currmovenumber " ++ show n
                                                   go (n+1) prev ms)
                   mnxt
 
-        info sr m = when rep $ do
-                      st <- get
-                      let s =  "TPC : " ++ show (hitRatio st) ++ "% "
-                               ++ show (st^.nCnt `div` 1000) ++ "kn "
-                               ++ " PV : " ++ renderVariation sr
-                               ++ " curr : " ++ renderShortMove m
-                      report $ s
-
-percentage :: Int -> Int -> Int
-percentage a b = if a == 0 then 0 else 100 * b `div` a
+-- percentage :: Int -> Int -> Int
+-- percentage a b = if a == 0 then 0 else 100 * b `div` a
 
 
-hitRatio :: SearchState -> Int
-hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
+-- hitRatio :: SearchState -> Int
+-- hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
 
 
 -- | The negascout search with transpos cache and killer.
@@ -253,7 +253,7 @@ negaScout
   -> Int -- ^ beta
   -> Int -- ^ colour
   -> Search (Maybe SearchResult)
-negaScout mx d alpha' beta' c = withTransPosCache d alpha' beta' $ \alpha beta mr -> do
+negaScout mx d alpha' beta' c = withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
   mate <- liftM (not . anyMove) $ use board
   if mate
     then do    
@@ -287,7 +287,7 @@ quiscene
   -> Int -- ^ colour
   -> Move
   -> Search (Maybe SearchResult)
-quiscene mx d alpha' beta' c pm = withTransPosCache d alpha' beta' $ \alpha beta mr -> do
+quiscene mx d alpha' beta' c pm = withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
   standPat <- liftM ((c*) . evaluate) (use board)
   nCnt += 1
   if standPat >= beta

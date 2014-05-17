@@ -10,7 +10,7 @@ import Control.Applicative ((<$>), liftA)
 import Control.Concurrent (forkIO)
 import Control.Concurrent.STM
 import Control.Lens hiding (from, to)
-import Control.Monad (forever, join, void, when)
+import Control.Monad (forever, join, void, when, liftM)
 import Data.IORef
 import Data.List
 import Data.Maybe
@@ -19,33 +19,48 @@ import System.IO
 import Text.ParserCombinators.Parsec
 
 
-data SearchOption = MovetimeMsc Int | Infinity deriving (Show)
-                    
-data Command = CmdUci 
+data SearchOption = MovetimeMsc Int
+                  | Infinity
+                  | Ponder
+                  | WTime Int
+                  | BTime Int
+                  | WInc Int
+                  | BInc Int
+                  | MovesToGo Int
+                  deriving (Show, Eq)
+
+
+data Command = CmdUci
              | CmdIsReady 
              | CmdUciNewGame 
              | CmdPosition Board
-             | CmdGo SearchOption
+             | CmdGo [ SearchOption ]
              | CmdStop
              | CmdQuit
+             | CmdPonderHit
             deriving (Show)
 
 data Response = RspId String String
               | RspUciOk
               | RspReadyOk
-              | RspBestMove Move
+              | RspBestMove Move (Maybe Move)
+              | RspNullMove
               | RspInfo String
               | RspOption String 
             
 
 ---------------- show ------------------
 instance Show Response where
-  show RspUciOk           = "uciok"
-  show RspReadyOk         = "readyok"
-  show (RspInfo info)     = "info " ++ info
-  show (RspId name value) = "id " ++ name ++ " " ++ value
-  show (RspBestMove move) = "bestmove " ++ renderShortMove move
-  show (RspOption text)   = "option " ++ text
+  show RspUciOk              = "uciok"
+  show RspReadyOk            = "readyok"
+  show (RspInfo info)        = "info " ++ info
+  show (RspId name value)    = "id " ++ name ++ " " ++ value
+  show (RspBestMove move mp) = "bestmove " ++ renderShortMove move
+                               ++ case mp of
+                                 Just p  -> " ponder " ++ renderShortMove p
+                                 Nothing -> ""
+  show RspNullMove           = "bestmove 0000"
+  show (RspOption text)      = "option " ++ text
 
 
 ------------------ parsers --------------
@@ -67,18 +82,32 @@ uciQuitParser = string "quit" >> return CmdQuit
 uciIntParser :: Parser Int
 uciIntParser = liftA read $ many1 digit
 
+
+uciSearchOptionParser :: Parser [ SearchOption ]
+uciSearchOptionParser = foldr1 (<|>)
+                        [ try $ argumentOption "movetime" MovetimeMsc
+                        , argumentOption "movestogo" MovesToGo
+                        , selectableOption "ponder" Ponder
+                        , selectableOption "infinite" Infinity
+                        , try $ argumentOption "wtime" WTime
+                        , try $ argumentOption "btime" BTime
+                        , argumentOption "winc" WInc
+                        , argumentOption "binc" BInc
+                        ] `sepBy` spaces
+  where selectableOption name t = string name >> return t
+        argumentOption name t = liftM t $ string name >> spaces >> uciIntParser
+
+
 uciGoParser :: Parser Command
 uciGoParser = do
   string "go" >> spaces
-  mbTimeout <- optionMaybe (string "movetime" >> spaces >> uciIntParser)
-  return $ case mbTimeout of
-             Nothing -> CmdGo Infinity
-             Just timeout -> CmdGo $ MovetimeMsc timeout
-                    
+  options <- uciSearchOptionParser
+  return $ CmdGo options
+  
     
 uciPositionParser :: CharParser () Command
 uciPositionParser = do
-  _ <- string "position" >> (many1 $ char ' ')
+  _ <- string "position" >> many1 (char ' ')
   posType <- string "fen" <|> string "startpos"
   spaces
   pos <- if posType == "fen" then parserBoard else return initialBoard
@@ -92,6 +121,10 @@ uciPositionParser = do
         Nothing -> return pos
 
 
+uciPonderHitParser :: Parser Command
+uciPonderHitParser = string "ponderhit" >> return CmdPonderHit
+
+
 uciCmdParser :: Parser Command
 uciCmdParser = try uciNewGameParser
                <|> uciUciParser
@@ -99,13 +132,8 @@ uciCmdParser = try uciNewGameParser
                <|> uciStopParser
                <|> uciQuitParser
                <|> uciGoParser
-               <|> uciPositionParser
-
-
-parseCommand :: String -> Maybe Command
-parseCommand line = case parse uciCmdParser "" line of
-                      Left _ -> Nothing
-                      Right cmd -> Just cmd
+               <|> try uciPositionParser
+               <|> uciPonderHitParser
 
 
 -- | The main IO () UCI loop. Talks to an UCI interface and drives the engine
@@ -114,50 +142,55 @@ uci = do
   hSetBuffering stdout NoBuffering
   a  <- newTVarIO False
   st <- newIORef $ mkSearchState a
-  pondering <- newIORef $ False
 
   forever $ do
         line <- getLine
-        case parseCommand line of
-          Nothing -> return ()
-          Just cmd -> do 
-              abort pondering a
-              responses <- getResponse cmd st pondering
-              let output = intercalate "\n" $ map show responses
-              putStrLn output
+        case parse uciCmdParser "" line of
+          Right cmd -> do
+            responses <- getResponse cmd st
+            let output = intercalate "\n" $ map show responses
+            putStrLn output
+          Left err -> putStrLn $ "info parse error : " ++ show err
 
-   where getResponse CmdUci             _ _ = return [RspId "name" "Chess", RspId "author" "Paul Sonkoly", RspUciOk]
-         getResponse CmdIsReady         _ _ = return [RspReadyOk]
-         getResponse CmdUciNewGame      _ _ = return []
-         getResponse CmdQuit            _ _ = exitSuccess
-         getResponse CmdStop            _ _ = return []
-         getResponse (CmdPosition pos) st _ = do
+   where getResponse CmdUci             _ = return [ RspId "name" "Chess"
+                                                   , RspId "author" "Paul Sonkoly"
+                                                   , RspOption "name Ponder type check default true"
+                                                   , RspUciOk
+                                                   ]
+         getResponse CmdIsReady         _ = return [RspReadyOk]
+         getResponse CmdUciNewGame      _ = return []
+         getResponse CmdQuit            _ = exitSuccess
+         getResponse CmdStop           st = abort st >> return [ RspNullMove ]
+
+         getResponse (CmdPosition pos) st = do
               modifyIORef st (board .~ pos)
               return []
-         getResponse (CmdGo _)        st pondering = do
+
+         getResponse (CmdPonderHit)    st = abort st >> goHandler st True
+
+         getResponse (CmdGo opts)      st = if Ponder `elem` opts
+                                                 then ponder st
+                                                 else goHandler st False
+
+         ponder st = do
+           void $ forkIO $ do
+             p <- readIORef st
+             (_, p') <- runSearch (search maxBound False) p
+             writeIORef st p'
+             atomically $ writeTVar (p'^.S.aborted) False
+           return []
+           
+         abort st = do
+           s <- readIORef st
+           atomically $ writeTVar (s^.aborted) True
+           atomically $ do
+             av <- readTVar (s^.aborted)
+             when av retry
+
+         goHandler st pondering = do
               p <- readIORef st
-              (r, p') <- runSearch (search 6) ((quiet .~ False) p)
+              (r, p') <- runSearch (search 6 pondering) p
               let m   = fromJust $ join $ first <$> r
                   p'' = (board %~ makeMove m) p'
               writeIORef st p''
-              ponder pondering st
-              return [ RspInfo ("currmove " ++ renderShortMove m), RspBestMove m ]
-
-         ponder pondering st = void $ do
-           writeIORef pondering True
-           forkIO $ do
-             p <- readIORef st
-             (_, p') <- runSearch (search maxBound) $ (quiet .~ True) p
-             writeIORef st p'
-             atomically $ writeTVar (p'^.S.aborted) False
-             writeIORef pondering False
-
-         abort pondering a = do
-              p <- readIORef pondering
-              when p $ do
-                atomically $ writeTVar a True
-                atomically $ do
-                         av <- readTVar a
-                         when av retry
-
-
+              return [ RspBestMove m (join $ second <$> r) ]

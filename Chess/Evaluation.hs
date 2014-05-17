@@ -69,7 +69,7 @@ evaluateBishopPosition b col = evalFor darkSquares + evalFor lightSquares
           bishopPos <- BB.toList $ fld .&. piecesOf b col Bishop
           let goodSquares = aheadBB (rank bishopPos) col
                             .&. magic Bishop bishopPos (occupancy b)
-                            .&. complement (b^.(piecesByColour col))
+                            .&. complement (b^.piecesByColour col)
           return $ popCount goodSquares
 
 
