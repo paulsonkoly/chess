@@ -64,8 +64,8 @@ parserMove b = do
               else Nothing
       cstl  = if Just King == pieceAt b f
               then case hDiff f t of
-                2  -> return Long
-                (-2) -> return Short
+                2  -> return Short
+                (-2) -> return Long
                 _  -> Nothing
               else Nothing
   return
