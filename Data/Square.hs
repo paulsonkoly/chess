@@ -73,7 +73,7 @@ instance Arbitrary Square where
 
 -- | Horizonatal difference (can be negative)
 hDiff :: Square -> Square -> Int
-hDiff a b = abs $ fromEnum (file a) - fromEnum (file b)
+hDiff a b = fromEnum (file a) - fromEnum (file b)
 {-# INLINE hDiff #-}
 
 
@@ -85,7 +85,7 @@ hDist a b = abs $ hDiff a b
 
 -- | Vertical difference (can be negative)
 vDiff :: Square -> Square -> Int
-vDiff a b = abs $ fromEnum (rank a) - fromEnum (rank b)
+vDiff a b = fromEnum (rank a) - fromEnum (rank b)
 {-# INLINE vDiff #-}
 
 
