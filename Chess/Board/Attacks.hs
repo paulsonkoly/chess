@@ -1,6 +1,7 @@
+{- | Checks for a `Square` being attacked by one of the players.
+ -}
 module Chess.Board.Attacks
-       ( attackedBy
-       , isAttacked
+       ( isAttacked
        , inCheck
        , inCheckWithNoFriendly
        ) where
@@ -15,34 +16,31 @@ import           Data.BitBoard
 import           Data.Square
 
 
--- | the bitboard from where the piece type of the given colour is attacking the specified position
-attackedBy :: PieceType -> Board -> BitBoard -> Colour -> Square -> BitBoard
-attackedBy Queen b occ c pos  = magic Queen pos occ            .&. piecesOf b c Queen
-attackedBy Bishop b occ c pos = magic Bishop pos occ           .&. piecesOf b c Bishop
-attackedBy Rook b occ c pos   = magic Rook pos occ             .&. piecesOf b c Rook
-attackedBy Knight b _ c pos   = knightAttackBB pos             .&. piecesOf b c Knight
-attackedBy King b _ c pos     = kingAttackBB pos               .&. piecesOf b c King
-attackedBy Pawn b _ c pos     = pawnAttackBB pos (opponent' c) .&. piecesOf b c Pawn
-
-
 -- | are any of the given player's pieces attacking the given square?
-isAttacked :: Board ->  Colour -> Square -> Bool
+isAttacked :: Board -> Colour -> Square -> Bool
 isAttacked b = isAttackedWithOccupancy b (occupancy b)
 
 
-isAttackedWithOccupancy :: Board -> BitBoard -> Colour -> Square -> Bool
-isAttackedWithOccupancy b occ c pos = any (/= mempty)
-                                      [ attackedBy pt b occ c pos
-                                      | pt <- [ Queen, Bishop, Rook, Knight, King, Pawn ]
-                                      ]
-
-
+-- | is the specified player in check?
 inCheck :: Board -> Colour -> Bool
 inCheck b c = let kP = head $ toList $ piecesOf b c King
               in  isAttacked b (opponent' c) kP
 
 
--- | is the king with the given colour attacked with the friendly pieces removed?
+-- | is the specified player in check with the friendly pieces removed?
 inCheckWithNoFriendly :: Board -> Colour -> Bool
 inCheckWithNoFriendly b c =  let kP = head $ toList $ piecesOf b c King
                              in  isAttackedWithOccupancy b (b^.piecesByColour (opponent' c)) (opponent' c) kP
+
+
+
+isAttackedWithOccupancy :: Board -> BitBoard -> Colour -> Square -> Bool
+isAttackedWithOccupancy b occ c pos = any (/= mempty) $ do
+  let attackBitBoard Bishop = {-# SCC attackBitBoardBishop #-} magic Bishop pos occ
+      attackBitBoard Rook   = {-# SCC attackBitBoardRook   #-} magic Rook pos occ
+      attackBitBoard Queen  = {-# SCC attackBitBoardQueen  #-} attackBitBoard Bishop <> attackBitBoard Rook
+      attackBitBoard Knight = {-# SCC attackBitBoardKnight #-} knightAttackBB pos
+      attackBitBoard King   = {-# SCC attackBitBoardKing   #-} kingAttackBB pos
+      attackBitBoard Pawn   = {-# SCC attackBitBoardPawn   #-} pawnAttackBB pos (opponent' c)
+  pt <- [ Queen, Bishop, Rook, Knight, King, Pawn ]      
+  return $ attackBitBoard pt .&. piecesOf b c pt
