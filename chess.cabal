@@ -36,6 +36,7 @@ executable chess
                        containers      ==0.5.*,
                        parsec          ==3.1.*,
                        lrucache        ==1.1.*,
+                       time            ==1.4.*,
                        QuickCheck      >= 2.6 && < 2.8
 
 

@@ -21,6 +21,8 @@ import           Control.Monad.State       (get)
 import           Data.ChessTypes
 import           Data.Foldable             (forM_)
 import           Data.List.Extras
+import Data.Time.Clock
+import Control.Monad.State (liftIO)
 
 
 data LoopResult = Mere { score :: Int } | Cacheable { score :: Int, entry :: TPC.TransPosCacheEntryType }
@@ -41,9 +43,11 @@ search d ponderHit = do
   tpcHit     .= 0
   tpcMiss    .= 0
   nCnt       .= 0
-  tpc        %= TPC.transPosCacheDeflate -- d
+  tpc        %= TPC.transPosCacheDeflate
   pv         .= PVS.mkPVStore
   kill       .= K.mkKiller
+  now        <- liftIO getCurrentTime
+  clock      .= Just now
   b          <- use board
   (startDepth, mbResult) <- if ponderHit
                             then do
@@ -88,11 +92,15 @@ withIterativeDeepening mx d s = do
 
 info :: Int -> SearchResult -> Search ()
 info d sr = do
-  st <- get
-  let s = "depth "        ++ show d
-          ++ " score cp " ++ show (10 * sr^.eval)
-          ++ " nodes "    ++ show (st^.nCnt)
-          ++ " pv "       ++ unwords (map renderShortMove (sr^.SR.moves))
+  st  <- get
+  now <- liftIO getCurrentTime
+  let Just backThen = st^.clock
+      diffTimems    = truncate $ (10 ^ (3 :: Int)) * (now `diffUTCTime` backThen)
+      s             = "depth "        ++ show d
+                      ++ " score cp " ++ show (10 * sr^.eval)
+                      ++ " nodes "    ++ show (st^.nCnt)
+                      ++ " time "     ++ show (diffTimems :: Int)
+                      ++ " pv "       ++ unwords (map renderShortMove (sr^.SR.moves))
   report s
 
 

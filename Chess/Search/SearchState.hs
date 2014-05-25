@@ -16,6 +16,7 @@ module Chess.Search.SearchState
        , tpcHit
        , tpcMiss
        , nCnt
+       , clock
        ) where
 
 import Chess.Board hiding (hash)
@@ -25,6 +26,7 @@ import Chess.TransPosCache (TransPosCache, mkTransPosCache)
 import Chess.Search.SearchResult
 import Control.Lens
 import Control.Concurrent.STM
+import Data.Time.Clock
 
 
 data Previous = Previous
@@ -46,12 +48,13 @@ data SearchState = SearchState
                    , _tpcHit   :: ! Int
                    , _tpcMiss  :: ! Int
                    , _nCnt     :: ! Int
+                   , _clock    :: Maybe UTCTime
                    }
 
 
 -- | Creates a search state with the initialBoard. Use the board Lens to manipulate the position in the SearchState
 mkSearchState :: TVar Bool -> SearchState
-mkSearchState a = SearchState initialBoard a Nothing mkTransPosCache mkKiller mkPVStore 0 0 0
+mkSearchState a = SearchState initialBoard a Nothing mkTransPosCache mkKiller mkPVStore 0 0 0 Nothing
 
 
 $(makeLenses ''SearchState)
