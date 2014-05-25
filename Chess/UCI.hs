@@ -80,7 +80,10 @@ uciQuitParser :: Parser Command
 uciQuitParser = string "quit" >> return CmdQuit
 
 uciIntParser :: Parser Int
-uciIntParser = liftA read $ many1 digit
+uciIntParser = do
+  sign   <- optionMaybe $ char '-'
+  digits <- many1 digit
+  return $ (read digits) * if isJust sign then (-1) else 1
 
 
 uciSearchOptionParser :: Parser [ SearchOption ]
