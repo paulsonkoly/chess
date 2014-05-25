@@ -22,7 +22,7 @@ import           Data.Monoid
 newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Read, Eq, Bounded)
 
 data Colour = White | Black deriving (Show, Read, Eq, Enum, Bounded)
-data PieceType = Queen | Rook | Bishop | Knight | King | Pawn deriving (Show, Eq)
+data PieceType = Queen | Rook | Bishop | Knight | King | Pawn deriving (Show, Eq, Enum, Bounded)
 
 
 -- I have tried the tuple-gen package, but that doesn't define the right instance of

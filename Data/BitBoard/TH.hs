@@ -45,7 +45,7 @@ toVecLookup2 n mx f =  do
   let vars = [ vara, varb ]
   return [ mkSignature name vars
          , FunD name [ Clause [VarP var | var <- [ vara,  varb ] ] (NormalB $ body vara varb) [] ]
-         , PragmaD $ InlineP name Inline FunLike AllPhases
+--         , PragmaD $ InlineP name Inline FunLike AllPhases
          ]
   where name = mkName n
         body vvara vvarb = InfixE

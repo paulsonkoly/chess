@@ -109,7 +109,7 @@ mirror sq = toSquare (file sq) (m $ rank sq)
 
 
 -- | A File on a Board
-newtype File = File Int deriving (Eq)
+newtype File = File Int deriving (Eq, Ord)
 
 
 instance Bounded File where
@@ -148,7 +148,7 @@ hFile = File 7
 
 
 -- | A rank on a chess board
-newtype Rank = Rank Int deriving (Eq)
+newtype Rank = Rank Int deriving (Eq, Ord)
 
 
 instance Bounded Rank where

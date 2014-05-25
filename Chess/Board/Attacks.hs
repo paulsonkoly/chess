@@ -2,6 +2,7 @@
  -}
 module Chess.Board.Attacks
        ( isAttacked
+       , attackedFromBB
        , inCheck
        , inCheckWithNoFriendly
        ) where
@@ -18,7 +19,7 @@ import           Data.Square
 
 -- | are any of the given player's pieces attacking the given square?
 isAttacked :: Board -> Colour -> Square -> Bool
-isAttacked b = isAttackedWithOccupancy b (occupancy b)
+isAttacked b c s = mempty /= attackedFromBB b (occupancy b) c s
 
 
 -- | is the specified player in check?
@@ -30,12 +31,12 @@ inCheck b c = let kP = head $ toList $ piecesOf b c King
 -- | is the specified player in check with the friendly pieces removed?
 inCheckWithNoFriendly :: Board -> Colour -> Bool
 inCheckWithNoFriendly b c =  let kP = head $ toList $ piecesOf b c King
-                             in  isAttackedWithOccupancy b (b^.piecesByColour (opponent' c)) (opponent' c) kP
+                             in  mempty /= attackedFromBB b (b^.piecesByColour (opponent' c)) (opponent' c) kP
 
 
 
-isAttackedWithOccupancy :: Board -> BitBoard -> Colour -> Square -> Bool
-isAttackedWithOccupancy b occ c pos = any (/= mempty) $ do
+attackedFromBB :: Board -> BitBoard -> Colour -> Square -> BitBoard
+attackedFromBB b occ c pos = foldr1 (<>) $ do
   let attackBitBoard Bishop = {-# SCC attackBitBoardBishop #-} magic Bishop pos occ
       attackBitBoard Rook   = {-# SCC attackBitBoardRook   #-} magic Rook pos occ
       attackBitBoard Queen  = {-# SCC attackBitBoardQueen  #-} attackBitBoard Bishop <> attackBitBoard Rook

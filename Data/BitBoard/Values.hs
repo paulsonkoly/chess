@@ -6,6 +6,8 @@ module Data.BitBoard.Values
        , knightAttackBB
        , kingAttackBB
        , pawnAttackBB
+       , lineBB
+       , pseudoAttackBB
        , centralSquares
        , largeCentralSquares
        , largeLargeCentralSquares
@@ -49,8 +51,9 @@ $(toVecLookup2 "aheadBB" 2 aheadBB')
 
 $(toVecLookup "knightAttackBB" knightAttackBB')
 $(toVecLookup "kingAttackBB" kingAttackBB')
-
 $(toVecLookup2 "pawnAttackBB" 2 pawnAttackBB')
+$(toVecLookup2 "lineBB" 64 lineBB')
+$(toVecLookup2 "pseudoAttackBB" 64 pseudoAttackBB')
 
 
 centralSquares :: BitBoard

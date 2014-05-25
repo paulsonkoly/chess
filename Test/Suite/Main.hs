@@ -22,6 +22,7 @@ tests =
     , testProperty "Number of kings after a move is 2" prop_numberOfKings
     , testProperty "Piece number is the same or one less after a move" prop_numberOfPieces
     , testProperty "Zobrist is the same after a move as freshly calculated on the modified board" prop_zobrist
+    , testProperty "A move cannot leave the King in check" prop_MoveLegalityCheck
     ]
     
   , testGroup "Board"

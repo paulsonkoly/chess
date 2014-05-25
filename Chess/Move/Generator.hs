@@ -20,7 +20,6 @@ import           Chess.Move.Execute
 import           Chess.Board.Attacks
 import           Chess.Board
 
-
 -- | Legal moves
 moves :: Board -> [ Move ]
 moves b = let cs = nub (simpleChecks b ++ discoveredChecks b)            -- the nub is not strictly nesecarry, but outherwise we
@@ -48,10 +47,9 @@ forcingMoves b = let ms = simpleChecks b
                  in filter (not . check b (b^.next) inc) ms
 
 
-
 -- | Is there a legal move?
 anyMove :: Board -> Bool
-anyMove b = let ok  = any (not . check b (b^.next) True)
+anyMove b = let ok  = any (legal b)
             in ok (quietMoves b)
                || ok (pawnQuietMoves b)            -- most frequent first
                || ok (captures b)
@@ -64,9 +62,16 @@ anyMove b = let ok  = any (not . check b (b^.next) True)
                || ok (pawnPromotions b)
 
 
+-- | my king position
+mKingPos :: Board -> Square
+mKingPos b = head $ toList $ piecesOf b (b^.next) King
+{-# INLINE mKingPos #-}
+
+
 -- | enemy king position
 eKingPos :: Board -> Square
 eKingPos b = head $ toList $ piecesOf b (b^.opponent) King
+{-# INLINE eKingPos #-}
 
 
 -- | knight, bishop, rook, queen simple checks - not discovered check
@@ -160,16 +165,29 @@ pawnEnPassants b = do
 
 -- | pieces that can give discovered checks
 discoverer :: Board -> BitBoard
-discoverer b = mconcat $ do
-  pt <- [ Rook, Bishop, Queen ]
-  let
-    -- King casting rays ..
-    eKingRayNear = magic pt (eKingPos b) (occupancy b)
-    potentials   = eKingRayNear .&. myPieces b
-    -- Now remove that piece and try to hit the right piece type
-    casters      = magic pt (eKingPos b) (occupancy b `xor` potentials) .&. myPiecesOf b pt
+discoverer b = discovererOrPinned b (b^.opponent) (b^.next)
+
+
+-- | pieces that are pinned
+pinned :: Board -> BitBoard
+pinned b = discovererOrPinned b (b^.next) (b^.next)
+
+
+discovererOrPinned
+  :: Board
+  -> Colour -- ^ Colour of the King
+  -> Colour -- ^ Colour of the Piece that is pinned or gives discovered check
+  -> BitBoard
+discovererOrPinned b c1 c2 = mconcat $ do
+  pt <- [ Rook, Bishop ]
+  let kingPos = head $ toList $ piecesOf b c1 King
+      -- King casting rays ..
+      kingRay = pseudoAttackBB pt kingPos -- magic pt kingPos (occupancy b)
+      casters = kingRay .&. (piecesOf b (opponent' c1) pt <> piecesOf b (opponent' c1) Queen)
   caster <- toList casters
-  return $ potentials .&. magic pt caster (occupancy b)
+  let inBetween = lineBB kingPos caster `xor` fromSquare kingPos `xor` fromSquare caster
+  guard (popCount (inBetween .&. occupancy b) < 2)
+  return $ inBetween .&. b^.piecesByColour c2
 
 
 captures :: Board -> [ Move ]
@@ -320,3 +338,40 @@ kingCastleMove Black Short = (toSquare eFile eighthRank, toSquare gFile eighthRa
 check :: Board -> Colour -> Bool -> Move -> Bool
 check b c inc m = (inc || m^.piece == King) && inCheck (makeMoveSimplified m b) c
 {-# INLINE check #-}
+
+
+legal :: Board -> Move -> Bool
+legal b m
+  | isJust (m^.enPassantTarget) = not $ inCheck (makeMoveSimplified m b) (b^.next)
+  | (m^.piece) == King          = not $ inCheck (makeMoveSimplified m b) (b^.next)
+                                  -- ,-,-,-,-,-,-,-,-, isAttacked b (opponent' $ b^.next) (m^.to)
+                                  -- | |r| | | |K| | | is not correct as in this position g8
+                                  -- | | | | | | | | | is not attacked, therefore allows f8g8
+                                  -- | | |k| | | | | |
+                                  -- | | | | | | | | |
+                                  -- | | | | | | | | |
+                                  -- | | | | | | | | |
+                                  -- | | | | | | | | |
+                                  -- | | | | | | | | |
+                                  -- '-'-'-'-'-'-'-'-'
+  | otherwise                   = let checkers = attackedFromBB b (occupancy b) (b^.opponent) (mKingPos b)
+                                      pinCheck = (pinned b .&. fromSquare (m^.from)) == mempty -- not pinned
+                                                 -- or pinned, but staying in line with the King
+                                                 || lineBB (mKingPos b) (m^.to) .&. fromSquare (m^.from) /= mempty
+                                  in case popCount checkers of
+                                    0 -> pinCheck
+                                    1 -> fromSquare (m^.to) == checkers && pinCheck -- Capture the checking piece
+                                    -- ,-,-,-,-,-,-,-,-, the pinCheck above is nesecarry as in this position we
+                                    -- | | | | | |k|r|R| capture the checking piece, but we do that with a pinned
+                                    -- | | | | | | |Q| | piece (g8g7)
+                                    -- | | | | | | | | |
+                                    -- | | | | | | | | |
+                                    -- | | |K| | | | | |
+                                    -- | | | | | | | | |
+                                    -- | | | | | | | | |
+                                    -- | | | | | | | | |
+                                    -- '-'-'-'-'-'-'-'-'
+                                    2 -> False -- Handled by the King case, only King moves can be legal
+                                    _ -> error "the king is attacked by more then 2 pieces"
+
+  

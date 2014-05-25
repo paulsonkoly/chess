@@ -18,7 +18,7 @@ import           Chess.Board.Attacks
 instance Q.Arbitrary Board where
   -- TODO   enpassant
   --        casltes
-  arbitrary = flip suchThat (\b -> not $ inCheck b (b^.opponent)) $ do
+  arbitrary = flip suchThat kingAttacksOk $ do
     wk <- liftM fromSquare arbitrary                    -- white king
     bk <- suchThat (liftM fromSquare arbitrary) (/= wk) -- black king
     let ks = wk .|. bk
@@ -42,17 +42,31 @@ instance Q.Arbitrary Board where
             $ (pawns       .~ ps)
             $ (next        .~ n)
             emptyBoard
+
     return $ (hash .~ calcHash b) b
 
     where removing f = liftM (.&. complement f) arbitrary
 
   -- remove 1 piece (except the king)
-  shrink b = map ((\bb ->   (whitePieces %~ (.&. bb))
-                          $ (blackPieces %~ (.&. bb))
-                          $ (rooks       %~ (.&. bb))
-                          $ (knights     %~ (.&. bb))
-                          $ (bishops     %~ (.&. bb))
-                          $ (queens      %~ (.&. bb))
-                          $ (pawns       %~ (.&. bb)) b) . complement . fromSquare)
+  shrink b = filter kingAttacksOk
+             $ map ((\bb ->   (whitePieces %~ (.&. bb))
+                            $ (blackPieces %~ (.&. bb))
+                            $ (rooks       %~ (.&. bb))
+                            $ (knights     %~ (.&. bb))
+                            $ (bishops     %~ (.&. bb))
+                            $ (queens      %~ (.&. bb))
+                            $ (pawns       %~ (.&. bb)) b) . complement . fromSquare)
              $ filter goodSquare squares
     where goodSquare sq = let p = pieceAt b sq in isJust p && p /= Just King
+
+
+-- | The king that's not next to move cannot be in check, and the
+-- other king can only be in check by at most 2 pieces
+kingAttacksOk :: Board -> Bool
+kingAttacksOk b = let nKingPos = head $ toList $ piecesOf b (b^.next) King
+                      oKingPos = head $ toList $ piecesOf b (b^.opponent) King
+                      nAttackers = attackedFromBB b (occupancy b) (b^.opponent) nKingPos
+                      oAttackers = attackedFromBB b (occupancy b) (b^.next)     oKingPos
+                      numNAttackers = popCount nAttackers
+                      numOAttackers = popCount oAttackers
+                  in numOAttackers == 0 && numNAttackers <= 2

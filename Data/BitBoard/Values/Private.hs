@@ -7,7 +7,10 @@ module Data.BitBoard.Values.Private
        , knightAttackBB'
        , kingAttackBB'
        , pawnAttackBB'
+       , lineBB'
+       , pseudoAttackBB'
        ) where
+
 
 import           Data.Monoid
 import           Data.BitBoard.BitBoard
@@ -67,3 +70,33 @@ kingAttackBB' s
 pawnAttackBB' :: Square -> Colour -> BitBoard
 pawnAttackBB' pos c = let mask  = neighbourFilesBB' (file pos)
                       in mconcat [ fromSquare (offset pos $ direction c n) | n <- [7, 9] ] .&. mask
+
+
+-- | For 2 squares on the same diagonal or rank this is a BitBoard with the squares in between the 2.
+-- Otherwise it's mempty.
+lineBB' :: Square -> Square -> BitBoard
+lineBB' a b
+  | hDist a b == 0 = mconcat [ fromSquare $ toSquare (file a) r | r <- rankList]
+  | vDist a b == 0 = mconcat [ fromSquare $ toSquare f (rank a) | f <- fileList]
+  | hDist a b == vDist a b = mconcat $ map fromSquare $ zipWith toSquare fileList rankList
+  | otherwise              = mempty
+  where fileList = if file a < file b
+                   then [ file a .. file b ]
+                   else reverse [ file b .. file a ]
+        rankList = if rank a < rank b
+                   then [ rank a .. rank b ]
+                   else reverse [ rank b .. rank a ]
+
+
+pseudoAttackBB' :: PieceType -> Square -> BitBoard
+pseudoAttackBB' Bishop sq = mconcat $ do
+  flist <- [ reverse [ aFile .. file sq], [ file sq .. hFile ] ]
+  rlist <- [ reverse [ firstRank .. rank sq ], [ rank sq .. eighthRank ] ]
+  (f, r) <- zip flist rlist
+  return $ fromSquare $ toSquare f r
+pseudoAttackBB' Rook sq  = fileBB (file sq) <> rankBB (rank sq)
+pseudoAttackBB' Queen sq = pseudoAttackBB' Bishop sq <> pseudoAttackBB' Rook sq
+pseudoAttackBB' King _   = mempty
+pseudoAttackBB' Knight _ = mempty
+pseudoAttackBB' Pawn _   = mempty
+              
