@@ -34,8 +34,14 @@ import           Data.ChessTypes
 import qualified Data.BitBoard.Values.Private as P (rankBB, fileBB)
 
 
-$(toVecLookup "neighbourRanksBB" neighbourRanksBB')
-$(toVecLookup "neighbourFilesBB" neighbourFilesBB')
+$(toVecLookup "neighbourRanksBB''" neighbourRanksBB')
+neighbourRanksBB :: Rank -> BitBoard
+neighbourRanksBB = neighbourRanksBB''
+
+
+$(toVecLookup "neighbourFilesBB''" neighbourFilesBB')
+neighbourFilesBB :: File -> BitBoard
+neighbourFilesBB = neighbourFilesBB''
 
 
 lightSquares :: BitBoard
@@ -47,13 +53,36 @@ darkSquares = mconcat [ BitBoard $ bit i | i <- [ 0, 2 .. 62 ] ]
 
 
 -- | the ranks ahead of us ( from the specified colour's pov ) including the rank
-$(toVecLookup2 "aheadBB" 2 aheadBB')                
+$(toVecLookup2 "aheadBB''" 2 aheadBB')
+aheadBB :: Rank -> Colour -> BitBoard
+aheadBB = aheadBB''
 
-$(toVecLookup "knightAttackBB" knightAttackBB')
-$(toVecLookup "kingAttackBB" kingAttackBB')
-$(toVecLookup2 "pawnAttackBB" 2 pawnAttackBB')
-$(toVecLookup2 "lineBB" 64 lineBB')
-$(toVecLookup2 "pseudoAttackBB" 64 pseudoAttackBB')
+
+$(toVecLookup "knightAttackBB''" knightAttackBB')
+knightAttackBB :: Square -> BitBoard
+knightAttackBB = knightAttackBB''
+
+
+$(toVecLookup "kingAttackBB''" kingAttackBB')
+kingAttackBB :: Square -> BitBoard
+kingAttackBB = kingAttackBB''
+
+
+$(toVecLookup2 "pawnAttackBB''" 2 pawnAttackBB')
+pawnAttackBB :: Square -> Colour -> BitBoard
+pawnAttackBB = pawnAttackBB''
+
+
+$(toVecLookup2 "lineBB''" 64 lineBB')
+-- | For 2 squares on the same diagonal or rank this is a BitBoard with the squares in between the 2.
+-- Otherwise it's mempty.
+lineBB :: Square -> Square -> BitBoard
+lineBB = lineBB''
+
+
+$(toVecLookup2 "pseudoAttackBB''" 64 pseudoAttackBB')
+pseudoAttackBB :: PieceType -> Square -> BitBoard
+pseudoAttackBB = pseudoAttackBB''
 
 
 centralSquares :: BitBoard

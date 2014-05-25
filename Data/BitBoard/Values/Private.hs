@@ -72,8 +72,6 @@ pawnAttackBB' pos c = let mask  = neighbourFilesBB' (file pos)
                       in mconcat [ fromSquare (offset pos $ direction c n) | n <- [7, 9] ] .&. mask
 
 
--- | For 2 squares on the same diagonal or rank this is a BitBoard with the squares in between the 2.
--- Otherwise it's mempty.
 lineBB' :: Square -> Square -> BitBoard
 lineBB' a b
   | hDist a b == 0 = mconcat [ fromSquare $ toSquare (file a) r | r <- rankList]
