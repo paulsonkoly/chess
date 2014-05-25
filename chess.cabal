@@ -87,3 +87,32 @@ Test-Suite suite
                        QuickCheck      >= 2.6 && < 2.8,
                        test-framework  ==0.8.*,
                        test-framework-quickcheck2 == 0.3.*
+
+Test-Suite puzzle
+  type:                exitcode-stdio-1.0
+  main-is:             Test/Puzzle/Main.hs
+  hs-source-dirs:      .
+  ghc-options:         -Wall -fwarn-tabs -O0
+                       -funbox-strict-fields
+                       -rtsopts
+  build-depends:       base            < 5,
+                       mtl             ==2.1.*,
+                       stm             ==2.4.*,
+                       ghc-prim,
+                       template-haskell < 3,
+                       HUnit           ==1.2.*,
+                       monad-loops     ==0.4.*,
+                       lens            ==4.1.*,
+                       MonadRandom     ==0.1.*,
+                       containers      ==0.5.*,
+                       bits-extras     ==0.1.*,
+                       vector          ==0.10.*,
+                       vector-th-unbox ==0.2.0.1,
+                       parsec          ==3.1.*,
+                       time            ==1.4.*,
+                       lrucache        ==1.1.*,
+                       QuickCheck      >= 2.6 && < 2.8,
+                       HUnit           ==1.2.*,
+                       test-framework  ==0.8.*,
+                       test-framework-hunit == 0.3.*,
+                       silently        == 1.2.*
