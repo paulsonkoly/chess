@@ -360,17 +360,19 @@ legal b m
                                                  || lineBB (mKingPos b) (m^.to) .&. fromSquare (m^.from) /= mempty
                                   in case popCount checkers of
                                     0 -> pinCheck
-                                    1 -> fromSquare (m^.to) == checkers && pinCheck -- Capture the checking piece
-                                    -- ,-,-,-,-,-,-,-,-, the pinCheck above is nesecarry as in this position we
-                                    -- | | | | | |k|r|R| capture the checking piece, but we do that with a pinned
-                                    -- | | | | | | |Q| | piece (g8g7)
-                                    -- | | | | | | | | |
-                                    -- | | | | | | | | |
-                                    -- | | |K| | | | | |
-                                    -- | | | | | | | | |
-                                    -- | | | | | | | | |
-                                    -- | | | | | | | | |
-                                    -- '-'-'-'-'-'-'-'-'
+                                    1 -> if m^.capturedPiece == Just Knight || m^.capturedPiece == Just Pawn
+                                         then fromSquare (m^.to) == checkers && pinCheck -- Capture the checking piece
+                                              -- ,-,-,-,-,-,-,-,-, the pinCheck above is nesecarry as in this position we
+                                              -- | | | | | |k|r|R| capture the checking piece, but we do that with a pinned
+                                              -- | | | | | | |Q| | piece (g8g7)
+                                              -- | | | | | | | | |
+                                              -- | | | | | | | | |
+                                              -- | | |K| | | | | |
+                                              -- | | | | | | | | |
+                                              -- | | | | | | | | |
+                                              -- | | | | | | | | |
+                                              -- '-'-'-'-'-'-'-'-'
+                                         else lineBB (mKingPos b) (head $ toList checkers) .&. (fromSquare $ m^.to) /= mempty && pinCheck
                                     2 -> False -- Handled by the King case, only King moves can be legal
                                     _ -> error "the king is attacked by more then 2 pieces"
 
