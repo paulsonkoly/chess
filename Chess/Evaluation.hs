@@ -5,9 +5,10 @@ module Chess.Evaluation
        ) where
 
 ------------------------------------------------------------------------------
+import           Control.Lens ((^.))
+
 import           Chess.Board
 import           Chess.Move
-import           Control.Lens
 import           Data.BitBoard
 import           Data.ChessTypes
 import           Data.Monoid
