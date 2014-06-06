@@ -7,11 +7,10 @@ module Chess.Search.Algorithm
 ------------------------------------------------------------------------------
 import           Control.Applicative       ((<$>))
 import           Control.Monad             (liftM, when)
-import           Control.Monad.State       (get)
+import           Control.Monad.State       (get, liftIO)
 import           Data.Foldable             (forM_)
 
 import           Control.Lens              ((+=), (.=), (^.), (%=), use)
-import           Control.Monad.State       (liftIO)
 import           Data.Time.Clock           (getCurrentTime, diffUTCTime)
 
 import           Chess.Board
@@ -61,8 +60,7 @@ search = do
   let c = direction (b^.next) 1
   withIterativeDeepening 1 $ \d' -> do
     mbR <- (c*) <@> negaScout d' d' (-inf) inf c
-    forM_ mbR $ \r -> do
-      pv .= PVS.insert (r^.SR.moves)
+    forM_ mbR $ \r -> pv .= PVS.insert (r^.SR.moves)
     return mbR
 
 

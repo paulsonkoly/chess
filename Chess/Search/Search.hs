@@ -49,7 +49,5 @@ abortable f = do
 
 
 readMaxDepth :: Search Int
-readMaxDepth = do
-  mxtv <- use maxDepth
-  mx <- liftIO $ readTVarIO mxtv
-  return mx
+readMaxDepth = use maxDepth >>= liftIO . readTVarIO
+

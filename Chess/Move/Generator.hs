@@ -372,7 +372,7 @@ legal b m
                                               -- >| | | | | | | | |
                                               -- >| | | | | | | | |
                                               -- >'-'-'-'-'-'-'-'-'
-                                         else lineBB (mKingPos b) (head $ toList checkers) .&. (fromSquare $ m^.to) /= mempty && pinCheck
+                                         else lineBB (mKingPos b) (head $ toList checkers) .&. fromSquare (m^.to) /= mempty && pinCheck
                                     2 -> False -- Handled by the King case, only King moves can be legal
                                     _ -> error "the king is attacked by more then 2 pieces"
 

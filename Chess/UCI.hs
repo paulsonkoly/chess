@@ -127,7 +127,7 @@ uciIntParser :: Parser Int
 uciIntParser = do
   sign   <- optionMaybe $ char '-'
   digits <- many1 digit
-  return $ (read digits) * if isJust sign then (-1) else 1
+  return $ read digits * if isJust sign then (-1) else 1
 
 
 ------------------------------------------------------------------------------
@@ -218,20 +218,19 @@ execute (CmdPonderHit)    st = do
   atomically $ writeTVar (s^.maxDepth) 6
 execute (CmdGo opts)      st =
   let mx = if Ponder `elem` opts then maxBound else 6
-  in do
-    void $ forkIO $ do
-      p <- readIORef st
-      atomically $ writeTVar (p^.maxDepth) mx
-      (r, p') <- runSearch search p
-      let mbMove = join $ first <$> r
-      rsp <- case mbMove of
-        Just m  -> do
-          let p'' = (board %~ makeMove m) p'
-          writeIORef st p''
-          return [ RspBestMove m (join $ second <$> r) ]
-        Nothing -> do
-          atomically $ writeTVar (p'^.S.aborted) False          
-          writeIORef st p'
-          return [ RspNullMove ]
-      display rsp
+  in void $ forkIO $ do
+    p <- readIORef st
+    atomically $ writeTVar (p^.maxDepth) mx
+    (r, p') <- runSearch search p
+    let mbMove = join $ first <$> r
+    rsp <- case mbMove of
+      Just m  -> do
+        let p'' = (board %~ makeMove m) p'
+        writeIORef st p''
+        return [ RspBestMove m (join $ second <$> r) ]
+      Nothing -> do
+        atomically $ writeTVar (p'^.S.aborted) False          
+        writeIORef st p'
+        return [ RspNullMove ]
+    display rsp
 
