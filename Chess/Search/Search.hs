@@ -5,6 +5,7 @@ module Chess.Search.Search
   , runSearch
   , report
   , abortable
+  , readMaxDepth
   ) where
 
 import Control.Monad.State
@@ -45,3 +46,10 @@ abortable f = do
   abortedtv <- use aborted
   abort     <- liftIO $ readTVarIO abortedtv
   if abort then return Nothing else f
+
+
+readMaxDepth :: Search Int
+readMaxDepth = do
+  mxtv <- use maxDepth
+  mx <- liftIO $ readTVarIO mxtv
+  return mx

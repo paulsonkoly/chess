@@ -69,8 +69,9 @@ mkTestCase :: String -> String -> Test
 mkTestCase f m = testCase (f ++ " : " ++ m) $ do
   r <- silence $ do
     abortVal <- newTVarIO False
+    depthVal <- newTVarIO 4
     let position = fromJust $ fromFEN f
-        state    = (board .~ position) $ mkSearchState abortVal
-    (r, _) <- runSearch (search 4 False) state
+        state    = (board .~ position) $ mkSearchState abortVal depthVal
+    (r, _) <- runSearch search state
     return $ join $ first <$> r
   renderShortMove <$> r @?= Just m

@@ -28,6 +28,7 @@ import           Data.ChessTypes
 import           Data.List.Extras
 
 
+
 ------------------------------------------------------------------------------
 data LoopResult = Mere { score :: Int }
                 | Cacheable
@@ -46,11 +47,8 @@ loopResultToSearchResult (Cacheable i TPC.Upper)        = SearchResult [] i
 
 ------------------------------------------------------------------------------
 -- | top level search
-search
-  :: Int  -- ^ depth
-  -> Bool -- ^ ponderhit
-  -> Search (Maybe SearchResult)
-search d ponderHit = do
+search :: Search (Maybe SearchResult)
+search = do
   tpcHit     .= 0
   tpcMiss    .= 0
   nCnt       .= 0
@@ -60,46 +58,28 @@ search d ponderHit = do
   now        <- liftIO getCurrentTime
   clock      .= Just now
   b          <- use board
-  (startDepth, mbResult) <-
-    if ponderHit
-    then do
-      mbPonder <- use previous
-      maybe (return (1, Nothing))
-        (\ponder -> do
-            pv .= PVS.insert (ponder^.result^.SR.moves)
-            return (ponder^.depth, Just $ ponder^.result))
-        mbPonder
-    else return (1, Nothing)
-  -- to avoid the race condition if we receive ponderhit before storing the
-  -- first level
-  previous .= Nothing
-
-  if startDepth >= d
-    then return mbResult
-    else do
-      let c = direction (b^.next) 1
-      withIterativeDeepening d startDepth $ \d' -> do
-        mbR <- (c*) <@> negaScout d' d' (-inf) inf c
-        forM_ mbR $ \r -> do
-          pv .= PVS.insert (r^.SR.moves)
-          previous .= Just Previous { _depth = d', _result = r}
-        return mbR
+  let c = direction (b^.next) 1
+  withIterativeDeepening 1 $ \d' -> do
+    mbR <- (c*) <@> negaScout d' d' (-inf) inf c
+    forM_ mbR $ \r -> do
+      pv .= PVS.insert (r^.SR.moves)
+    return mbR
 
 
 ------------------------------------------------------------------------------
 -- searches with iterative deepening
 withIterativeDeepening
-  :: Int                        -- ^ max depth
-  -> Int                        -- ^ start depth
+  :: Int                        -- ^ start depth
   -> (Int -> Search (Maybe a))  -- ^ search of given depth
   -> Search (Maybe a)
-withIterativeDeepening mx d s = do
+withIterativeDeepening d s = do
   report $ "depth " ++ show d
-  r <- s d
+  r    <- s d
+  mx   <- readMaxDepth
   maybe (return Nothing)
         (const $ if d >= mx
                  then return r
-                 else withIterativeDeepening mx (d + 1) s)
+                 else withIterativeDeepening (d + 1) s)
         r
 
 
@@ -135,13 +115,12 @@ withMove m ac = do
 ------------------------------------------------------------------------------
 -- executes a search action with a transpositional cache lookup
 withTransPosCache
-  :: Int -- ^ max depth
-  -> Int -- ^ depth
+  :: Int -- ^ depth
   -> Int -- ^ alpha
   -> Int -- ^ beta
   -> (Int -> Int -> Maybe Move -> Search (Maybe SearchResult))
   -> Search (Maybe SearchResult)
-withTransPosCache mx d alpha beta f = do
+withTransPosCache d alpha beta f = do
   b <- use board
   t <- use tpc
 
@@ -153,7 +132,9 @@ withTransPosCache mx d alpha beta f = do
       case e^.TPC.typ of
 
         TPC.Exact m ms -> let sr = SearchResult (m:ms) (e^.TPC.score)
-                          in when (d == mx) (info d sr) >> return (Just sr)
+                          in do
+                            mx <- readMaxDepth
+                            when (d == mx) (info d sr) >> return (Just sr)
 
         TPC.Lower m    -> let alpha' = max alpha $ e^.TPC.score
                           in if alpha' >= beta
@@ -296,7 +277,7 @@ negaScout
   -> Int -- ^ colour
   -> Search (Maybe SearchResult)
 negaScout mx d alpha' beta' c =
-  withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
+  withTransPosCache d alpha' beta' $ \alpha beta mr -> do
     mate <- liftM (not . anyMove) $ use board
     if mate
       then do    
@@ -334,7 +315,7 @@ quiscene
   -> Move
   -> Search (Maybe SearchResult)
 quiscene mx d alpha' beta' c pm =
-  withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
+  withTransPosCache d alpha' beta' $ \alpha beta mr -> do
     standPat <- liftM ((c*) . evaluate) (use board)
     nCnt += 1
     brd <- use board

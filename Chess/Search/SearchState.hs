@@ -3,13 +3,10 @@
 module Chess.Search.SearchState
        ( mkSearchState
        , SearchState
-       , Previous(..)
          -- * Lenses
        , board
        , aborted
-       , previous
-       , depth
-       , result
+       , maxDepth
        , tpc
        , kill
        , pv
@@ -19,29 +16,24 @@ module Chess.Search.SearchState
        , clock
        ) where
 
+------------------------------------------------------------------------------
+
+import Control.Concurrent.STM
+import Control.Lens
+import Data.Time.Clock
+
 import Chess.Board hiding (hash)
 import Chess.Killer
 import Chess.PVStore
 import Chess.TransPosCache (TransPosCache, mkTransPosCache)
-import Chess.Search.SearchResult
-import Control.Lens
-import Control.Concurrent.STM
-import Data.Time.Clock
 
 
-data Previous = Previous
-                { _depth  :: ! Int          -- ^ the depth that we have successfully searched
-                , _result :: SearchResult   -- ^ the last successfull search
-                }
-
-
-$(makeLenses ''Previous)
-
-
+------------------------------------------------------------------------------
+-- | The state of the 'Search' monad
 data SearchState = SearchState
                    { _board    :: Board
                    , _aborted  :: TVar Bool
-                   , _previous :: Maybe Previous
+                   , _maxDepth :: TVar Int                     
                    , _tpc      :: TransPosCache
                    , _kill     :: Killer
                    , _pv       :: PVStore
@@ -52,9 +44,30 @@ data SearchState = SearchState
                    }
 
 
--- | Creates a search state with the initialBoard. Use the board Lens to manipulate the position in the SearchState
-mkSearchState :: TVar Bool -> SearchState
-mkSearchState a = SearchState initialBoard a Nothing mkTransPosCache mkKiller mkPVStore 0 0 0 Nothing
+------------------------------------------------------------------------------
+-- | Creates a search state with the initialBoard. Use the board Lens to
+-- manipulate the position in the SearchState
+--
+-- The TVar parameters can be changed asynchronously while the 'Search' is
+-- running. Transition from pondering to normal search can be achieved with
+-- reducing the maximum depth from 'maxBound' to some reasonably small
+-- value. The abort should be raised to kill a running 'Search' and should be
+-- polled for the bit to be dropped as a signal back mechanism that the abort
+-- succeeded.
+mkSearchState
+  :: TVar Bool -- ^ the signal to toggle to abort a search
+  -> TVar Int  -- ^ the maximum depth the search traverses
+  -> SearchState
+mkSearchState abort maxDepth =
+  SearchState
+   initialBoard
+   abort
+   maxDepth
+   mkTransPosCache
+   mkKiller
+   mkPVStore
+   0 0 0
+   Nothing
 
 
 $(makeLenses ''SearchState)

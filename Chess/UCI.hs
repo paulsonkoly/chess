@@ -1,23 +1,52 @@
+-- | Module for UCI protocol.
+--
+-- This module drives the engine (starts the search) in response to the GUI,
+-- and provides the communication between the GUI and the engine using the UCI
+-- v2 protocol.
 module Chess.UCI
        ( uci
        ) where
 
-import Chess.Board hiding (hash)
-import Chess.Move
-import Chess.Search
-import qualified Chess.Search as S (aborted)
-import Control.Applicative ((<$>), liftA)
-import Control.Concurrent (forkIO)
-import Control.Concurrent.STM
-import Control.Lens hiding (from, to)
-import Control.Monad (forever, join, void, when, liftM)
-import Data.IORef
-import Data.List
-import Data.Maybe
-import System.Exit
-import System.IO
-import Text.ParserCombinators.Parsec
 
+------------------------------------------------------------------------------
+import           Control.Applicative ((<$>))
+import           Control.Concurrent
+import           Control.Concurrent.STM
+import           Control.Monad
+import           Data.IORef
+import           Data.List
+import           Data.Maybe
+import           System.Exit
+import           System.IO
+
+import           Control.Lens ((.~), (^.), (%~))
+import           Text.ParserCombinators.Parsec
+
+import           Chess.Board hiding (hash)
+import           Chess.Move
+import           Chess.Search
+import qualified Chess.Search as S (aborted)
+
+
+------------------------------------------------------------------------------
+-- | The main IO () UCI loop. Talks to an UCI interface and drives the engine
+uci :: IO ()
+uci = do
+  hSetBuffering stdout NoBuffering
+  a  <- newTVarIO False
+  mx <- newTVarIO 6
+  st <- newIORef $ mkSearchState a mx
+
+  forever $ do
+        line <- getLine
+        case parse uciCmdParser "" line of
+          Right cmd -> execute cmd st
+          Left err  -> putStrLn $ "info string parse error : " ++ show err
+
+
+                           -----------------------
+                           -- Parser data types --
+                           -----------------------
 
 data SearchOption = MovetimeMsc Int
                   | Infinity
@@ -40,16 +69,17 @@ data Command = CmdUci
              | CmdPonderHit
             deriving (Show)
 
+
 data Response = RspId String String
               | RspUciOk
               | RspReadyOk
               | RspBestMove Move (Maybe Move)
               | RspNullMove
               | RspInfo String
-              | RspOption String 
-            
+              | RspOption String
+                
 
----------------- show ------------------
+------------------------------------------------------------------------------
 instance Show Response where
   show RspUciOk              = "uciok"
   show RspReadyOk            = "readyok"
@@ -63,22 +93,36 @@ instance Show Response where
   show (RspOption text)      = "option " ++ text
 
 
------------------- parsers --------------
+                                -------------
+                                -- parsers --
+                                -------------
+
+------------------------------------------------------------------------------
 uciUciParser :: Parser Command
 uciUciParser = string "uci" >> return CmdUci
 
+
+------------------------------------------------------------------------------
 uciIsReadyParser :: Parser Command
 uciIsReadyParser = string "isready" >> return CmdIsReady
 
+
+------------------------------------------------------------------------------
 uciNewGameParser :: Parser Command
 uciNewGameParser = string "ucinewgame" >> return CmdUciNewGame
 
+
+------------------------------------------------------------------------------
 uciStopParser :: Parser Command
 uciStopParser = string "stop" >> return CmdStop
 
+
+------------------------------------------------------------------------------
 uciQuitParser :: Parser Command
 uciQuitParser = string "quit" >> return CmdQuit
 
+
+------------------------------------------------------------------------------
 uciIntParser :: Parser Int
 uciIntParser = do
   sign   <- optionMaybe $ char '-'
@@ -86,6 +130,7 @@ uciIntParser = do
   return $ (read digits) * if isJust sign then (-1) else 1
 
 
+------------------------------------------------------------------------------
 uciSearchOptionParser :: Parser [ SearchOption ]
 uciSearchOptionParser = foldr1 (<|>)
                         [ try $ argumentOption "movetime" MovetimeMsc
@@ -98,24 +143,27 @@ uciSearchOptionParser = foldr1 (<|>)
                         , argumentOption "binc" BInc
                         ] `sepBy` spaces
   where selectableOption name t = string name >> return t
-        argumentOption name t = liftM t $ string name >> spaces >> uciIntParser
+        argumentOption name t   = liftM t
+                                  $ string name >> spaces >> uciIntParser
 
 
+------------------------------------------------------------------------------
 uciGoParser :: Parser Command
 uciGoParser = do
   string "go" >> spaces
   options <- uciSearchOptionParser
   return $ CmdGo options
+
   
-    
-uciPositionParser :: CharParser () Command
+------------------------------------------------------------------------------    
+uciPositionParser :: Parser Command
 uciPositionParser = do
   _ <- string "position" >> many1 (char ' ')
   posType <- string "fen" <|> string "startpos"
   spaces
   pos <- if posType == "fen" then parserBoard else return initialBoard
   spaces
-  liftA CmdPosition $ option pos (string "moves" >> parserMoveList pos)
+  liftM CmdPosition $ option pos (string "moves" >> parserMoveList pos)
   where
     parserMoveList pos = do
       mm <- optionMaybe (spaces >> parserMove pos)
@@ -124,10 +172,12 @@ uciPositionParser = do
         Nothing -> return pos
 
 
+------------------------------------------------------------------------------
 uciPonderHitParser :: Parser Command
 uciPonderHitParser = string "ponderhit" >> return CmdPonderHit
 
 
+------------------------------------------------------------------------------
 uciCmdParser :: Parser Command
 uciCmdParser = try uciNewGameParser
                <|> uciUciParser
@@ -139,61 +189,49 @@ uciCmdParser = try uciNewGameParser
                <|> uciPonderHitParser
 
 
--- | The main IO () UCI loop. Talks to an UCI interface and drives the engine
-uci :: IO ()
-uci = do
-  hSetBuffering stdout NoBuffering
-  a  <- newTVarIO False
-  st <- newIORef $ mkSearchState a
+------------------------------------------------------------------------------
+display :: [ Response ] -> IO ()
+display rsps = let output = intercalate "\n" $ map show rsps
+               in putStrLn output
 
-  forever $ do
-        line <- getLine
-        case parse uciCmdParser "" line of
-          Right cmd -> do
-            responses <- getResponse cmd st
-            let output = intercalate "\n" $ map show responses
-            putStrLn output
-          Left err -> putStrLn $ "info parse error : " ++ show err
 
-   where getResponse CmdUci             _ = return [ RspId "name" "Chess"
-                                                   , RspId "author" "Paul Sonkoly"
-                                                   , RspOption "name Ponder type check default true"
-                                                   , RspUciOk
-                                                   ]
-         getResponse CmdIsReady         _ = return [RspReadyOk]
-         getResponse CmdUciNewGame      _ = return []
-         getResponse CmdQuit            _ = exitSuccess
-         getResponse CmdStop           st = abort st >> return [ RspNullMove ]
+------------------------------------------------------------------------------
+execute :: Command -> IORef SearchState -> IO ()
+execute CmdUci             _ =
+  display [ RspId "name"   "Chess"
+          , RspId "author" "Paul Sonkoly"
+          , RspOption "name Ponder type check default true"
+          , RspUciOk
+          ]
+execute CmdIsReady         _ = display [ RspReadyOk ]
+execute CmdUciNewGame      _ = return ()
+execute CmdQuit            _ = exitSuccess
+execute CmdStop           st = do
+  s <- readIORef st
+  atomically $ writeTVar (s^.aborted) True
+  atomically $ do
+    av <- readTVar (s^.aborted)
+    when av retry
+execute (CmdPosition pos) st = modifyIORef st (board .~ pos)
+execute (CmdPonderHit)    st = do
+  s <- readIORef st
+  atomically $ writeTVar (s^.maxDepth) 6
+execute (CmdGo opts)      st =
+  let mx = if Ponder `elem` opts then maxBound else 6
+  in do
+    void $ forkIO $ do
+      p <- readIORef st
+      atomically $ writeTVar (p^.maxDepth) mx
+      (r, p') <- runSearch search p
+      let mbMove = join $ first <$> r
+      rsp <- case mbMove of
+        Just m  -> do
+          let p'' = (board %~ makeMove m) p'
+          writeIORef st p''
+          return [ RspBestMove m (join $ second <$> r) ]
+        Nothing -> do
+          atomically $ writeTVar (p'^.S.aborted) False          
+          writeIORef st p'
+          return [ RspNullMove ]
+      display rsp
 
-         getResponse (CmdPosition pos) st = do
-              modifyIORef st (board .~ pos)
-              return []
-
-         getResponse (CmdPonderHit)    st = abort st >> goHandler st True
-
-         getResponse (CmdGo opts)      st = if Ponder `elem` opts
-                                                 then ponder st
-                                                 else goHandler st False
-
-         ponder st = do
-           void $ forkIO $ do
-             p <- readIORef st
-             (_, p') <- runSearch (search maxBound False) p
-             writeIORef st p'
-             atomically $ writeTVar (p'^.S.aborted) False
-           return []
-           
-         abort st = do
-           s <- readIORef st
-           atomically $ writeTVar (s^.aborted) True
-           atomically $ do
-             av <- readTVar (s^.aborted)
-             when av retry
-
-         goHandler st pondering = do
-              p <- readIORef st
-              (r, p') <- runSearch (search 6 pondering) p
-              let m   = fromJust $ join $ first <$> r
-                  p'' = (board %~ makeMove m) p'
-              writeIORef st p''
-              return [ RspBestMove m (join $ second <$> r) ]
