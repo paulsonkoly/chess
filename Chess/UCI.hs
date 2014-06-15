@@ -209,17 +209,20 @@ execute CmdQuit            _ = exitSuccess
 execute CmdStop           st = do
   s <- readIORef st
   atomically $ writeTVar (s^.aborted) True
-  atomically $ do
-    av <- readTVar (s^.aborted)
-    when av retry
+
 execute (CmdPosition pos) st = modifyIORef st (board .~ pos)
 execute (CmdPonderHit)    st = do
   s <- readIORef st
   atomically $ writeTVar (s^.maxDepth) 6
-execute (CmdGo opts)      st =
+execute (CmdGo opts)      st = do
+  p <- readIORef st
+  atomically $ do
+    av <- readTVar (p^.aborted)
+    when av retry
+    
   let mx = if Ponder `elem` opts then maxBound else 6
-  in void $ forkIO $ do
-    p <- readIORef st
+      
+  void $ forkIO $ do
     atomically $ writeTVar (p^.maxDepth) mx
     (r, p') <- runSearch search p
     let mbMove = join $ first <$> r
