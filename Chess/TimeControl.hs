@@ -23,11 +23,11 @@ module Chess.TimeControl
        , addStats
        , timeControl
          -- * Setters
-       , setWhiteTime -- ^ Sets white's time.
-       , setBlackTime -- ^ Sets black's time.
-       , setWhiteInc  -- ^ Sets white's increment.
-       , setBlackInc  -- ^ Sets black's increment.
-       , setMovesToGo -- ^ Sets the moves to go until the next time control.
+       , setWhiteTime
+       , setBlackTime
+       , setWhiteInc
+       , setBlackInc
+       , setMovesToGo
        ) where
 
 ------------------------------------------------------------------------------
@@ -57,26 +57,36 @@ data TimeControl = Timed
                  deriving (Show)
 
 
+------------------------------------------------------------------------------
+-- | Sets white's time
 setWhiteTime :: Time -> TimeControl -> TimeControl
 setWhiteTime ot (Timed _ oi tt ti mtg) = Timed ot oi tt ti mtg
 setWhiteTime ot _ = Timed ot Nothing 0 Nothing Nothing
 
 
+------------------------------------------------------------------------------
+-- | Sets black's time
 setBlackTime :: Time -> TimeControl -> TimeControl
 setBlackTime tt (Timed ot oi _ ti mtg) = Timed ot oi tt ti mtg
 setBlackTime tt _ = Timed 0 Nothing tt Nothing Nothing
 
 
+------------------------------------------------------------------------------
+-- | Sets white's increment
 setWhiteInc :: Time -> TimeControl -> TimeControl
 setWhiteInc oi (Timed ot _ tt ti mtg) = Timed ot (Just oi) tt ti mtg
 setWhiteInc oi _ = Timed 0 (Just oi) 0 Nothing Nothing
 
 
+------------------------------------------------------------------------------
+-- | Sets black's increment
 setBlackInc :: Time -> TimeControl -> TimeControl
 setBlackInc ti (Timed ot oi tt _ mtg) = Timed ot oi tt (Just ti) mtg
 setBlackInc ti _ = Timed 0 Nothing 0 (Just ti) Nothing
 
 
+------------------------------------------------------------------------------
+-- | Sets the moves to go until the next time control
 setMovesToGo :: Int -> TimeControl -> TimeControl
 setMovesToGo mtg (Timed ot oi tt ti _) = Timed ot oi tt ti (Just mtg)
 setMovesToGo mtg _ = Timed 0 Nothing 0 Nothing (Just mtg)
