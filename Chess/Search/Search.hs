@@ -5,7 +5,7 @@ module Chess.Search.Search
   , runSearch
   , report
   , abortable
-  , readMaxDepth
+  , isPondering
   ) where
 
 import Control.Monad.State
@@ -48,6 +48,6 @@ abortable f = do
   if abort then return Nothing else f
 
 
-readMaxDepth :: Search Int
-readMaxDepth = use maxDepth >>= liftIO . readTVarIO
+isPondering :: Search Bool
+isPondering = use pondering >>= liftIO . readTVarIO
 

@@ -8,10 +8,11 @@ module Chess.Search.Algorithm
 import           Control.Applicative       ((<$>))
 import           Control.Monad             (liftM, when)
 import           Control.Monad.State       (get, liftIO)
+import           Data.Bits                 (popCount)
 import           Data.Foldable             (forM_)
 
 import           Control.Lens              ((+=), (.=), (^.), (%=), use)
-import           Data.Time.Clock           (getCurrentTime, diffUTCTime)
+import           Data.Time.Clock
 
 import           Chess.Board
 import           Chess.Evaluation
@@ -22,6 +23,7 @@ import           Chess.Search.Search
 import qualified Chess.Search.SearchResult as SR (moves)
 import           Chess.Search.SearchResult hiding (moves)
 import           Chess.Search.SearchState
+import           Chess.TimeControl
 import qualified Chess.TransPosCache       as TPC
 import           Data.ChessTypes
 import           Data.List.Extras
@@ -46,39 +48,52 @@ loopResultToSearchResult (Cacheable i TPC.Upper)        = SearchResult [] i
 
 ------------------------------------------------------------------------------
 -- | top level search
-search :: Search (Maybe SearchResult)
-search = do
-  tpcHit     .= 0
-  tpcMiss    .= 0
-  nCnt       .= 0
-  tpc        %= TPC.transPosCacheDeflate
-  pv         .= PVS.mkPVStore
-  kill       .= K.mkKiller
-  now        <- liftIO getCurrentTime
-  clock      .= Just now
-  b          <- use board
+search :: TimeControl -> Search (Maybe SearchResult)
+search tc = do
+  -- clear caches, stats, counters
+  tpcHit    .= 0
+  tpcMiss   .= 0
+  nCnt      .= 0
+  tpc       %= TPC.transPosCacheDeflate
+  pv        .= PVS.mkPVStore
+  kill      .= K.mkKiller
+  now       <- liftIO getCurrentTime
+  clock     .= Just now
+  timeStats .= mkTimeStats
+  b         <- use board
   let c = direction (b^.next) 1
-  withIterativeDeepening 1 $ \d' -> do
-    mbR <- (c*) <@> negaScout d' d' (-inf) inf c
-    forM_ mbR $ \r -> pv .= PVS.insert (r^.SR.moves)
-    return mbR
+  withIterativeDeepening (b^.next) tc 1 $ \d' ->
+    (c*) <@> negaScout d' d' (-inf) inf c
 
 
 ------------------------------------------------------------------------------
 -- searches with iterative deepening
 withIterativeDeepening
-  :: Int                        -- ^ start depth
-  -> (Int -> Search (Maybe a))  -- ^ search of given depth
-  -> Search (Maybe a)
-withIterativeDeepening d s = do
+  :: Colour                                -- ^ the engine's 'Colour'
+  -> TimeControl
+  -> Int                                   -- ^ start depth
+  -> (Int -> Search (Maybe SearchResult))  -- ^ search of given depth
+  -> Search (Maybe SearchResult)
+withIterativeDeepening c tc d s = do
   report $ "depth " ++ show d
-  r    <- s d
-  mx   <- readMaxDepth
-  maybe (return Nothing)
-        (const $ if d >= mx
-                 then return r
-                 else withIterativeDeepening (d + 1) s)
-        r
+  startTime <- liftIO getCurrentTime
+  mbR <- s d
+  endTime <- liftIO getCurrentTime
+  p <- isPondering
+  case mbR of
+    
+    Just r -> do
+      pv        .= PVS.insert (r^.SR.moves)
+      timeStats %= addStats
+        (diffTimeToMs endTime startTime)
+        ((\m -> (m, 10 * r^.eval)) <$> (first r))
+      stats <- use timeStats
+      b     <- use board
+      if timeControl c p (popCount $ occupancy $ b) tc stats
+      then withIterativeDeepening c tc (d + 1) s
+      else return $ Just r
+
+    Nothing -> return Nothing
 
 
 ------------------------------------------------------------------------------
@@ -86,16 +101,19 @@ info :: Int -> SearchResult -> Search ()
 info d sr = do
   st  <- get
   now <- liftIO getCurrentTime
-  let Just backThen = st^.clock
-      diffTimems    = truncate $ (10 ^ (3 :: Int))
-                      * (now `diffUTCTime` backThen)
+  let Just backThen = st^.clock      
       s             = "depth "        ++ show d
                       ++ " score cp " ++ show (10 * sr^.eval)
                       ++ " nodes "    ++ show (st^.nCnt)
-                      ++ " time "     ++ show (diffTimems :: Int)
+                      ++ " time "     ++ show (diffTimeToMs now backThen)
                       ++ " pv "       ++ unwords (map renderShortMove
                                                   (sr^.SR.moves))
   report s
+
+
+------------------------------------------------------------------------------
+diffTimeToMs :: UTCTime -> UTCTime -> Int
+diffTimeToMs n b = truncate $ (10 ^ (3 :: Int)) * (n `diffUTCTime` b)
 
 
 ------------------------------------------------------------------------------
@@ -113,12 +131,13 @@ withMove m ac = do
 ------------------------------------------------------------------------------
 -- executes a search action with a transpositional cache lookup
 withTransPosCache
-  :: Int -- ^ depth
+  :: Int -- ^ Max depth
+  -> Int -- ^ depth
   -> Int -- ^ alpha
   -> Int -- ^ beta
   -> (Int -> Int -> Maybe Move -> Search (Maybe SearchResult))
   -> Search (Maybe SearchResult)
-withTransPosCache d alpha beta f = do
+withTransPosCache mx d alpha beta f = do
   b <- use board
   t <- use tpc
 
@@ -130,9 +149,7 @@ withTransPosCache d alpha beta f = do
       case e^.TPC.typ of
 
         TPC.Exact m ms -> let sr = SearchResult (m:ms) (e^.TPC.score)
-                          in do
-                            mx <- readMaxDepth
-                            when (d == mx) (info d sr) >> return (Just sr)
+                          in when (d == mx) (info d sr) >> return (Just sr)
 
         TPC.Lower m    -> let alpha' = max alpha $ e^.TPC.score
                           in if alpha' >= beta
@@ -275,7 +292,7 @@ negaScout
   -> Int -- ^ colour
   -> Search (Maybe SearchResult)
 negaScout mx d alpha' beta' c =
-  withTransPosCache d alpha' beta' $ \alpha beta mr -> do
+  withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
     mate <- liftM (not . anyMove) $ use board
     if mate
       then do    
@@ -313,7 +330,7 @@ quiscene
   -> Move
   -> Search (Maybe SearchResult)
 quiscene mx d alpha' beta' c pm =
-  withTransPosCache d alpha' beta' $ \alpha beta mr -> do
+  withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
     standPat <- liftM ((c*) . evaluate) (use board)
     nCnt += 1
     brd <- use board

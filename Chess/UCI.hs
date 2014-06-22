@@ -26,6 +26,7 @@ import           Chess.Board hiding (hash)
 import           Chess.Move
 import           Chess.Search
 import qualified Chess.Search as S (aborted)
+import           Chess.TimeControl
 
 
 ------------------------------------------------------------------------------
@@ -33,14 +34,19 @@ import qualified Chess.Search as S (aborted)
 uci :: IO ()
 uci = do
   hSetBuffering stdout NoBuffering
-  a  <- newTVarIO False
-  mx <- newTVarIO 6
-  st <- newIORef $ mkSearchState a mx
+  a <- newTVarIO False
+  p <- newTVarIO False
+  st <- newIORef $ mkSearchState a p
 
   forever $ do
         line <- getLine
         case parse uciCmdParser "" line of
-          Right cmd -> execute cmd st
+          Right cmd -> do
+            s <- readIORef st
+            atomically $ do
+              av <- readTVar (s^.aborted)
+              when av retry
+            execute cmd st
           Left err  -> putStrLn $ "info string parse error : " ++ show err
 
 
@@ -48,22 +54,11 @@ uci = do
                            -- Parser data types --
                            -----------------------
 
-data SearchOption = MovetimeMsc Int
-                  | Infinity
-                  | Ponder
-                  | WTime Int
-                  | BTime Int
-                  | WInc Int
-                  | BInc Int
-                  | MovesToGo Int
-                  deriving (Show, Eq)
-
-
 data Command = CmdUci
              | CmdIsReady 
              | CmdUciNewGame 
              | CmdPosition Board
-             | CmdGo [ SearchOption ]
+             | CmdGo Bool TimeControl
              | CmdStop
              | CmdQuit
              | CmdPonderHit
@@ -131,28 +126,36 @@ uciIntParser = do
 
 
 ------------------------------------------------------------------------------
-uciSearchOptionParser :: Parser [ SearchOption ]
-uciSearchOptionParser = foldr1 (<|>)
-                        [ try $ argumentOption "movetime" MovetimeMsc
-                        , argumentOption "movestogo" MovesToGo
-                        , selectableOption "ponder" Ponder
-                        , selectableOption "infinite" Infinity
-                        , try $ argumentOption "wtime" WTime
-                        , try $ argumentOption "btime" BTime
-                        , argumentOption "winc" WInc
-                        , argumentOption "binc" BInc
-                        ] `sepBy` spaces
-  where selectableOption name t = string name >> return t
-        argumentOption name t   = liftM t
-                                  $ string name >> spaces >> uciIntParser
+-- The time control parser
+uciTimeControlParser :: Parser (TimeControl -> TimeControl)
+uciTimeControlParser = do
+  opts <- singleOption `sepBy` spaces
+  return $ foldr (.) id opts
+  where singleOption =
+          try (funcIntParser "movetime" $ \mt -> const $ TimeSpecified mt)
+          <|> (funcIntParser "depth" $ \d -> const $ DepthSpecified d)
+          <|> (funcParser "infinite" $ const Infinite)
+          <|> try (funcIntParser "wtime" setWhiteTime)
+          <|> try (funcIntParser "btime" setBlackTime)
+          <|> try (funcIntParser "winc" setWhiteInc)
+          <|> try (funcIntParser "binc" setBlackInc)
+          <|> (funcIntParser "movestogo" setMovesToGo)
 
+        funcIntParser n f = string n >> spaces >> uciIntParser >>= return . f
+        funcParser n f = string n >> return f
+          
 
 ------------------------------------------------------------------------------
 uciGoParser :: Parser Command
 uciGoParser = do
   string "go" >> spaces
-  options <- uciSearchOptionParser
-  return $ CmdGo options
+  -- time control stuff can be on either side of the ponder string. Marvellous
+  fun1 <- uciTimeControlParser
+  spaces
+  ponder <- liftM (isJust) $ optionMaybe $ string "ponder"
+  spaces
+  fun2 <- uciTimeControlParser
+  return $ CmdGo ponder (fun2 $ fun1 $ Infinite)
 
   
 ------------------------------------------------------------------------------    
@@ -203,28 +206,28 @@ execute CmdUci             _ =
           , RspOption "name Ponder type check default true"
           , RspUciOk
           ]
+
 execute CmdIsReady         _ = display [ RspReadyOk ]
+
 execute CmdUciNewGame      _ = return ()
+
 execute CmdQuit            _ = exitSuccess
+
 execute CmdStop           st = do
   s <- readIORef st
   atomically $ writeTVar (s^.aborted) True
 
 execute (CmdPosition pos) st = modifyIORef st (board .~ pos)
+
 execute (CmdPonderHit)    st = do
   s <- readIORef st
-  atomically $ writeTVar (s^.maxDepth) 6
-execute (CmdGo opts)      st = do
-  p <- readIORef st
-  atomically $ do
-    av <- readTVar (p^.aborted)
-    when av retry
-    
-  let mx = if Ponder `elem` opts then maxBound else 6
-      
+  atomically $ writeTVar (s^.pondering) False
+
+execute (CmdGo ponder tc) st = do
   void $ forkIO $ do
-    atomically $ writeTVar (p^.maxDepth) mx
-    (r, p') <- runSearch search p
+    p <- readIORef st
+    atomically $ writeTVar (p^.pondering) ponder
+    (r, p') <- runSearch (search tc) p
     let mbMove = join $ first <$> r
     rsp <- case mbMove of
       Just m  -> do
@@ -232,8 +235,7 @@ execute (CmdGo opts)      st = do
         writeIORef st p''
         return [ RspBestMove m (join $ second <$> r) ]
       Nothing -> do
-        atomically $ writeTVar (p'^.S.aborted) False          
         writeIORef st p'
         return [ RspNullMove ]
     display rsp
-
+    atomically $ writeTVar (p'^.S.aborted) False
