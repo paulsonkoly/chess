@@ -104,7 +104,7 @@ uciIsReadyParser = string "isready" >> return CmdIsReady
 
 ------------------------------------------------------------------------------
 uciNewGameParser :: Parser Command
-uciNewGameParser = string "ucinewgame" >> return CmdUciNewGame
+uciNewGameParser = try (string "ucinewgame") >> return CmdUciNewGame
 
 
 ------------------------------------------------------------------------------
@@ -127,41 +127,42 @@ uciIntParser = do
 
 ------------------------------------------------------------------------------
 -- The time control parser
-uciTimeControlParser :: Parser (TimeControl -> TimeControl)
+uciTimeControlParser :: Parser (Bool, TimeControl -> TimeControl)
 uciTimeControlParser = do
   opts <- singleOption `sepBy` spaces
-  return $ foldr (.) id opts
+  return $ foldr (\(a, f) (b, g) -> (a || b, f . g)) (False, id) opts
   where singleOption =
-          try (funcIntParser "movetime" $ \mt -> const $ TimeSpecified mt)
+          (funcIntParser "movetime" $ \mt -> const $ TimeSpecified mt)
           <|> (funcIntParser "depth" $ \d -> const $ DepthSpecified d)
           <|> (funcParser "infinite" $ const Infinite)
-          <|> try (funcIntParser "wtime" setWhiteTime)
-          <|> try (funcIntParser "btime" setBlackTime)
-          <|> try (funcIntParser "winc" setWhiteInc)
-          <|> try (funcIntParser "binc" setBlackInc)
+          <|> (funcIntParser "wtime" setWhiteTime)
+          <|> (funcIntParser "btime" setBlackTime)
+          <|> (funcIntParser "winc" setWhiteInc)
+          <|> (funcIntParser "binc" setBlackInc)
           <|> (funcIntParser "movestogo" setMovesToGo)
+          <|> (string "ponder" >> return (True, id))
 
-        funcIntParser n f = string n >> spaces >> uciIntParser >>= return . f
-        funcParser n f = string n >> return f
+        funcIntParser n f = do
+          _ <- try $ string n
+          spaces
+          i <- uciIntParser
+          return (False, f i)
+
+        funcParser n f = string n >> return (False, f)
           
 
 ------------------------------------------------------------------------------
 uciGoParser :: Parser Command
 uciGoParser = do
   string "go" >> spaces
-  -- time control stuff can be on either side of the ponder string. Marvellous
-  fun1 <- uciTimeControlParser
-  spaces
-  ponder <- liftM (isJust) $ optionMaybe $ string "ponder"
-  spaces
-  fun2 <- uciTimeControlParser
-  return $ CmdGo ponder (fun2 $ fun1 $ Infinite)
-
+  (ponder, f) <- uciTimeControlParser
+  return $ CmdGo ponder $ f Infinite
+  
   
 ------------------------------------------------------------------------------    
 uciPositionParser :: Parser Command
 uciPositionParser = do
-  _ <- string "position" >> many1 (char ' ')
+  _ <- try $ string "position" >> many1 (char ' ')
   posType <- string "fen" <|> string "startpos"
   spaces
   pos <- if posType == "fen" then parserBoard else return initialBoard
@@ -182,13 +183,13 @@ uciPonderHitParser = string "ponderhit" >> return CmdPonderHit
 
 ------------------------------------------------------------------------------
 uciCmdParser :: Parser Command
-uciCmdParser = try uciNewGameParser
+uciCmdParser = uciNewGameParser
                <|> uciUciParser
                <|> uciIsReadyParser
                <|> uciStopParser
                <|> uciQuitParser
                <|> uciGoParser
-               <|> try uciPositionParser
+               <|> uciPositionParser
                <|> uciPonderHitParser
 
 
