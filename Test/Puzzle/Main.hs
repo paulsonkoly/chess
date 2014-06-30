@@ -1,22 +1,28 @@
 module Main(main) where
 
-import Chess.Board
-import Chess.Move
-import Chess.Search
 import Control.Applicative ((<$>))
 import Control.Concurrent.STM (newTVarIO)
-import Control.Lens ((.~))
 import Control.Monad (join)
 import Data.Maybe (fromJust)
+
+import Control.Lens ((.~))
+import System.IO.Silently
 import Test.Framework
 import Test.Framework.Providers.HUnit
 import Test.HUnit ((@?=))
-import System.IO.Silently
 
+import Chess.Board
+import Chess.Move
+import Chess.Search
+import Chess.TimeControl
+
+
+------------------------------------------------------------------------------
 main :: IO ()
 main = defaultMain tests
 
 
+------------------------------------------------------------------------------
 tests :: [ Test ]
 tests =
   [ testGroup "Puzzles"
@@ -64,14 +70,14 @@ tests =
   ]
 
 
-    
+------------------------------------------------------------------------------    
 mkTestCase :: String -> String -> Test
 mkTestCase f m = testCase (f ++ " : " ++ m) $ do
   r <- silence $ do
-    abortVal <- newTVarIO False
-    depthVal <- newTVarIO 4
+    abortVal  <- newTVarIO False
+    ponderVal <- newTVarIO False
     let position = fromJust $ fromFEN f
-        state    = (board .~ position) $ mkSearchState abortVal depthVal
-    (r, _) <- runSearch search state
+        state    = (board .~ position) $ mkSearchState abortVal ponderVal
+    (r, _) <- runSearch (search $ DepthSpecified 4) state
     return $ join $ first <$> r
   renderShortMove <$> r @?= Just m
