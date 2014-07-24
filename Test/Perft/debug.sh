@@ -9,12 +9,16 @@
 PERFT=$(dirname $0)/../../dist/build/perft/perft
 CRAFTY=crafty
 
+if [[ "$2" -lt  1 ]]; then
+    exit
+fi
+
 getCraftyResult()
 {
    ($CRAFTY |& grep "total moves" | sed "s/.*total moves=\([0-9]*\).*/\1/") <<EOF
 ponder off
 setboard $1
-perft $2
+perft $2 0 0
 EOF
 }
 

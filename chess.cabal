@@ -115,4 +115,7 @@ Test-Suite puzzle
                        HUnit           ==1.2.*,
                        test-framework  ==0.8.*,
                        test-framework-hunit == 0.3.*,
-                       silently        == 1.2.*
+                       silently        == 1.2.*,
+                       blaze-html      == 0.7.*,
+                       blaze-markup    == 0.6.*
+

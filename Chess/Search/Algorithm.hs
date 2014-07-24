@@ -86,10 +86,10 @@ withIterativeDeepening c tc d s = do
       pv        .= PVS.insert (r^.SR.moves)
       timeStats %= addStats
         (diffTimeToMs endTime startTime)
-        ((\m -> (m, 10 * r^.eval)) <$> (first r))
+        ((\m -> (m, 10 * r^.eval)) <$> first r)
       stats <- use timeStats
       b     <- use board
-      if timeControl c p (popCount $ occupancy $ b) tc stats
+      if timeControl c p (popCount $ occupancy b) tc stats
       then withIterativeDeepening c tc (d + 1) s
       else return $ Just r
 

@@ -23,7 +23,10 @@ module Data.Square
        , offset
        -- * utilities
        , mirror
-       , parserSquare
+       -- * parsers
+       , fileParser
+       , rankParser
+       , squareParser
        ) where
 
 import           Data.Char
@@ -60,7 +63,7 @@ instance Show Square where
 
 -- | Opposite of Show ie parses 'a1' into a Square
 instance Read Square where
-  readsPrec _ s = case parse parserSquare "" s of
+  readsPrec _ s = case parse squareParser "" s of
     Left _  -> []
     Right sq -> [ ( sq, "") ]
 
@@ -218,11 +221,30 @@ toSquare :: File -> Rank -> Square
 toSquare (File f) (Rank r) = Square $ r `shiftL` 3 + f
 {-# INLINE toSquare #-}
 
+                                -------------
+                                -- Parsers --
+                                -------------
 
--- | The parser for 'a1' etc notation
-parserSquare :: Parser Square
-parserSquare = do
+------------------------------------------------------------------------------
+-- | Parses a file notation to a File
+fileParser :: Parser File
+fileParser = do
   f <- oneOf ['a' .. 'h']
+  return $ toEnum $ ord f - ord 'a'
+
+
+------------------------------------------------------------------------------
+-- | Parses a rank notation to a Rank
+rankParser :: Parser Rank
+rankParser = do
   r <- oneOf ['1' .. '8']
-  return $ Square $ 8 * (digitToInt r - 1) + (ord f - ord 'a')
-{-# INLINE parserSquare #-}
+  return $ toEnum $ ord r - ord '1'
+
+
+------------------------------------------------------------------------------
+-- | The parser for 'a1' etc notation
+squareParser :: Parser Square
+squareParser = do
+  f <- fileParser
+  r <- rankParser
+  return $ toSquare f r

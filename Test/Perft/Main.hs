@@ -12,6 +12,7 @@ import           Chess.Board
 
 
 perft :: Int -> Board -> Integer
+perft 0 _ = 0
 perft d b = let ms = moves b
             in if d == 1
                then fromIntegral $ length ms
@@ -40,11 +41,14 @@ testInitialPos n = perft n initialBoard ~?= initialPerftResult n
 
 initialTests :: Test
 initialTests  =
-  TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n | n <- [1 .. 4] ]
+  TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n
+           | n <- [1 .. 4]
+           ]
 
 
 ruyLopezPosition :: Board
-ruyLopezPosition = fromJust $ fromFEN "r1bqkbnr/1pp2ppp/p1p5/4N3/4P3/8/PPPP1PPP/RNBQK2R b KQkq - 0 5"
+ruyLopezPosition = fromJust $ fromFEN
+  "r1bqkbnr/1pp2ppp/p1p5/4N3/4P3/8/PPPP1PPP/RNBQK2R b KQkq -"
 
 
 ruyLopezPerftResult :: Int -> Integer
@@ -62,7 +66,9 @@ testRuyLopez n = perft n ruyLopezPosition ~?= ruyLopezPerftResult n
 
 ruyLopezTests :: Test
 ruyLopezTests =
-  TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n | n <- [1 .. 4] ]
+  TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n
+           | n <- [1 .. 4]
+           ]
 
 
 allTests :: Test
@@ -98,7 +104,8 @@ main = do
   conf <- execParser ((info $ commandParser <**> helper) idm)
   case conf of
     Just (Perft b d)  -> print $ perft d b
-    Just (Siblings b) -> void $ mapM putStrLn [ fen $ makeMove m b | m <- moves b]
+    Just (Siblings b) -> void $ mapM putStrLn
+                         [ fen $ makeMove m b | m <- moves b ]
     Nothing           -> do
       c <- runTestTT allTests
       if cases c == tried c && failures c == 0 && errors c == 0

@@ -132,14 +132,14 @@ uciTimeControlParser = do
   opts <- singleOption `sepBy` spaces
   return $ foldr (\(a, f) (b, g) -> (a || b, f . g)) (False, id) opts
   where singleOption =
-          (funcIntParser "movetime" $ \mt -> const $ TimeSpecified mt)
-          <|> (funcIntParser "depth" $ \d -> const $ DepthSpecified d)
-          <|> (funcParser "infinite" $ const Infinite)
-          <|> (funcIntParser "wtime" setWhiteTime)
-          <|> (funcIntParser "btime" setBlackTime)
-          <|> (funcIntParser "winc" setWhiteInc)
-          <|> (funcIntParser "binc" setBlackInc)
-          <|> (funcIntParser "movestogo" setMovesToGo)
+          funcIntParser "movetime" (const . TimeSpecified)
+          <|> funcIntParser "depth" (const . DepthSpecified)
+          <|> funcParser "infinite" (const Infinite)
+          <|> funcIntParser "wtime" setWhiteTime
+          <|> funcIntParser "btime" setBlackTime
+          <|> funcIntParser "winc" setWhiteInc
+          <|> funcIntParser "binc" setBlackInc
+          <|> funcIntParser "movestogo" setMovesToGo
           <|> (string "ponder" >> return (True, id))
 
         funcIntParser n f = do
@@ -165,12 +165,14 @@ uciPositionParser = do
   _ <- try $ string "position" >> many1 (char ' ')
   posType <- string "fen" <|> string "startpos"
   spaces
-  pos <- if posType == "fen" then parserBoard else return initialBoard
+  (FEN pos _ _) <- if posType == "fen"
+                   then fenParser
+                   else return $ FEN initialBoard 0 0
   spaces
   liftM CmdPosition $ option pos (string "moves" >> parserMoveList pos)
   where
     parserMoveList pos = do
-      mm <- optionMaybe (spaces >> parserMove pos)
+      mm <- optionMaybe (spaces >> moveParser pos)
       case mm of
         Just m  -> parserMoveList $ makeMove m pos
         Nothing -> return pos
@@ -224,7 +226,7 @@ execute (CmdPonderHit)    st = do
   s <- readIORef st
   atomically $ writeTVar (s^.pondering) False
 
-execute (CmdGo ponder tc) st = do
+execute (CmdGo ponder tc) st =
   void $ forkIO $ do
     p <- readIORef st
     atomically $ writeTVar (p^.pondering) ponder

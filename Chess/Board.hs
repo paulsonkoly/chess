@@ -24,7 +24,7 @@ import Data.BitBoard
 -- | The initial position of a chess game.
 initialBoard :: Board
 initialBoard =
-  fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+  fromJust $ fromFEN "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -"
 
 
 ------------------------------------------------------------------------------

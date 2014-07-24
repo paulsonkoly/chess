@@ -97,4 +97,3 @@ pseudoAttackBB' Queen sq = pseudoAttackBB' Bishop sq <> pseudoAttackBB' Rook sq
 pseudoAttackBB' King _   = mempty
 pseudoAttackBB' Knight _ = mempty
 pseudoAttackBB' Pawn _   = mempty
-              

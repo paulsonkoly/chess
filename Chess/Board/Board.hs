@@ -223,28 +223,45 @@ prettyPrint b = do
    putStrLn $ take 17 $ cycle "'-"
 
 
+------------------------------------------------------------------------------
+-- | The FEN string (without the halfmove, fullmove counters)
 fen :: Board -> String
-fen b = boardPrint (toSquare aFile eighthRank) (0::Int) ++ " " ++ whosNext ++ " " ++ castlings ++ " " ++ enp ++ " 0 0"
-  where boardPrint sq acc = let mpt = pieceAt b sq
-                            in case mpt of
-                              Just pt -> (if acc > 0
-                                         then show acc
-                                         else "") ++ [ paint pt (fromJust $ pieceColourAt b sq) ] ++ step sq 0
-                              Nothing -> step sq (acc + 1)
-        step sq acc = if file sq == hFile then
-                        (if acc > 0 then show acc else "")
-                        ++ if rank sq == firstRank
-                           then ""
-                           else '/' : boardPrint (toSquare aFile (pred $ rank sq)) 0
-                      else boardPrint (toSquare (succ $ file sq) (rank sq)) acc
+fen b = boardPrint (toSquare aFile eighthRank) (0::Int)
+        ++ " " ++ whosNext
+        ++ " " ++ castlings
+        ++ " " ++ enp
+  where boardPrint sq acc =
+          let mpt = pieceAt b sq
+          in case mpt of
+            Just pt -> (if acc > 0
+                        then show acc
+                        else "")
+                       ++ [ paint pt (fromJust $ pieceColourAt b sq) ]
+                       ++ step sq 0
+            Nothing -> step sq (acc + 1)
+            
+        step sq acc =
+          if file sq == hFile then
+            (if acc > 0 then show acc else "")
+            ++ if rank sq == firstRank
+               then ""
+               else '/' : boardPrint (toSquare aFile (pred $ rank sq)) 0
+          else boardPrint (toSquare (succ $ file sq) (rank sq)) acc
+               
         whosNext  = if (b^.next) == White then "w" else "b"
-        castlings = let str = map (toUpper . paintCaslte) (toCastleList $ b^.whiteCastleRights)
-                              ++ map paintCaslte  (toCastleList $ b^.blackCastleRights)
-                    in if str == "" then "-" else str
+        
+        castlings =
+          let str = map (toUpper . paintCaslte)
+                    (toCastleList $ b^.whiteCastleRights)
+                    ++ map paintCaslte  (toCastleList $ b^.blackCastleRights)
+          in if str == "" then "-" else str
+                                        
         paintCaslte Short = 'k'
         paintCaslte Long  = 'q'
+        
         enp = case b^.enPassant of
-          Just sq -> show $ toSquare (file sq) (if rank sq == fourthRank then thirdRank else sixthRank)
+          Just sq -> show $ toSquare (file sq)
+                     (if rank sq == fourthRank then thirdRank else sixthRank)
           Nothing -> "-"
 
 
