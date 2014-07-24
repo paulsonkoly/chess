@@ -210,8 +210,9 @@ lowerToPromotion = upperToPromotion . toUpper
 
 ------------------------------------------------------------------------------
 upperToPieceType :: Maybe Char -> PieceType
-upperToPieceType (Just c) = upperToPromotion c
-upperToPieceType Nothing  = Pawn
+upperToPieceType (Just 'K') = King
+upperToPieceType (Just c)   = upperToPromotion c
+upperToPieceType Nothing    = Pawn
 
 
 ------------------------------------------------------------------------------
