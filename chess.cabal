@@ -112,9 +112,6 @@ Test-Suite puzzle
                        time            ==1.4.*,
                        lrucache        ==1.1.*,
                        QuickCheck      >= 2.6 && < 2.8,
-                       HUnit           ==1.2.*,
-                       test-framework  ==0.8.*,
-                       test-framework-hunit == 0.3.*,
                        silently        == 1.2.*,
                        blaze-html      == 0.7.*,
                        blaze-markup    == 0.6.*
