@@ -9,6 +9,7 @@ import           Data.Monoid ((<>))
 import           System.Environment (getArgs)
 
 import           Control.Lens ((.~), (^.))
+import           Control.Parallel.Strategies
 import           System.IO.Silently
 import           Text.Blaze
 import           Text.Blaze.Html.Renderer.Pretty
@@ -55,7 +56,7 @@ main = do
 
 ------------------------------------------------------------------------------
 runWithReport :: String -> [ EPD ] -> IO H.Html
-runWithReport fn epds = liftM (Main.report fn) $ mapM runEPD epds
+runWithReport fn epds = liftM (Main.report fn) (mapM runEPD epds `using` rpar)
 
 
 ------------------------------------------------------------------------------

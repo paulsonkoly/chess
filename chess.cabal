@@ -92,9 +92,9 @@ Test-Suite puzzle
   type:                exitcode-stdio-1.0
   main-is:             Test/Puzzle/Main.hs
   hs-source-dirs:      .
-  ghc-options:         -Wall -fwarn-tabs -O0
+  ghc-options:         -Wall -fwarn-tabs -O1
                        -funbox-strict-fields
-                       -rtsopts
+                       -with-rtsopts=-N -threaded
   build-depends:       base            < 5,
                        mtl             ==2.1.*,
                        stm             ==2.4.*,
@@ -114,5 +114,6 @@ Test-Suite puzzle
                        QuickCheck      >= 2.6 && < 2.8,
                        silently        == 1.2.*,
                        blaze-html      == 0.7.*,
-                       blaze-markup    == 0.6.*
+                       blaze-markup    == 0.6.*,
+                       parallel        == 3.2.*
 
