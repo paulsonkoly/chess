@@ -140,7 +140,7 @@ data Disambiguity = DSquare Square | DFile File Square | DRank Rank Square
 ------------------------------------------------------------------------------
 -- The disambiguity and the target square parser in san
 disambiguityParser :: Parser Disambiguity
-disambiguityParser = drParser <|> dsParser <|> dfParser
+disambiguityParser = drParser <|> (try dfParser) <|> dsParser
   where drParser = parser (\(Just r) sq -> DRank r sq) $ Just rankParser          
         dfParser = parser (\(Just f) sq -> DFile f sq) $ Just fileParser
         dsParser = parser (\Nothing sq  -> DSquare sq) Nothing
