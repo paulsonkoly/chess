@@ -41,22 +41,22 @@ Testing
 
 The [STS](https://sites.google.com/site/strategictestsuite) run with depth set to 6. Total points for STS1-10: 336, STS1-13: 410, STS1-14: 452.
 
-| STS                                                  | Points |
-|:-----------------------------------------------------|-------:|
-| [STS1](http://phaul.github.io/chess/STS1.epd.html)   | 24     |
-| [STS2](http://phaul.github.io/chess/STS2.epd.html)   | 41     |
-| [STS3](http://phaul.github.io/chess/STS3.epd.html)   | 26     |
-| [STS4](http://phaul.github.io/chess/STS4.epd.html)   | 35     |
-| [STS5](http://phaul.github.io/chess/STS5.epd.html)   | 53     |
-| [STS6](http://phaul.github.io/chess/STS6.epd.html)   | 39     |
-| [STS7](http://phaul.github.io/chess/STS7.epd.html)   | 34     |
-| [STS8](http://phaul.github.io/chess/STS8.epd.html)   | 10     |
-| [STS9](http://phaul.github.io/chess/STS9.epd.html)   | 16     |
-| [STS10](http://phaul.github.io/chess/STS10.epd.html) | 58     |
-| [STS11](http://phaul.github.io/chess/STS11.epd.html) | 14     |
-| [STS12](http://phaul.github.io/chess/STS12.epd.html) | 32     |
-| [STS13](http://phaul.github.io/chess/STS13.epd.html) | 28     |
-| [STS14](http://phaul.github.io/chess/STS14.epd.html) | 42     |
+| STS                                                  | Points | Test                                         |
+|:-----------------------------------------------------|-------:|:---------------------------------------------|
+| [STS1](http://phaul.github.io/chess/STS1.epd.html)   | 24     | Undermine									   |
+| [STS2](http://phaul.github.io/chess/STS2.epd.html)   | 41     | Open Files and Diagonals					   |
+| [STS3](http://phaul.github.io/chess/STS3.epd.html)   | 26     | Knight Outposts/Repositioning/Centralization |
+| [STS4](http://phaul.github.io/chess/STS4.epd.html)   | 35     | Square Vacancy							   |
+| [STS5](http://phaul.github.io/chess/STS5.epd.html)   | 53     | Bishop vs Knight							   |
+| [STS6](http://phaul.github.io/chess/STS6.epd.html)   | 39     | Recapturing								   |
+| [STS7](http://phaul.github.io/chess/STS7.epd.html)   | 34     | Simplification							   |
+| [STS8](http://phaul.github.io/chess/STS8.epd.html)   | 10     | AKPC										   |
+| [STS9](http://phaul.github.io/chess/STS9.epd.html)   | 16     | Advancement of a/b/c pawns				   |
+| [STS10](http://phaul.github.io/chess/STS10.epd.html) | 58     | Simplification							   |
+| [STS11](http://phaul.github.io/chess/STS11.epd.html) | 14     | King Activity								   |
+| [STS12](http://phaul.github.io/chess/STS12.epd.html) | 32     | Center Control							   |
+| [STS13](http://phaul.github.io/chess/STS13.epd.html) | 28     | Pawn Play in the Center					   |
+| [STS14](http://phaul.github.io/chess/STS14.epd.html) | 42     | 7th Rank                                     |
 
 ---
 
