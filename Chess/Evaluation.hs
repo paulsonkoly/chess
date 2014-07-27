@@ -23,19 +23,25 @@ evaluate b =
   then if inCheck b (b^.next)
        then direction (b^.next) (-3000)
        else 0
-  else let material = sum [ w * (numberOf b White pt - numberOf b Black pt)
-                          | pt <- [ Queen,  Rook, Bishop, Knight, Pawn ]
-                          , let w = pieceValue pt
-                          ]
-       in material + sum [ f b White - f b Black
-                         | f <- [ evaluateRookPosition
-                                , evaluateKingSafety
-                                , evaluateCastle
-                                , evaluateBishopPosition
-                                , evaluateKnightPosition
-                                , evaluatePawnPosition
-                                ]
-                         ]
+  else sum [ f b White - f b Black
+           | f <- [ evaluateMaterial
+                  , evaluateRookPosition
+                  , evaluateKingSafety
+                  , evaluateCastle
+                  , evaluateBishopPosition
+                  , evaluateKnightPosition
+                  , evaluatePawnPosition
+                  ]
+           ]
+
+
+------------------------------------------------------------------------------
+-- Evaluate material
+evaluateMaterial :: Board -> Colour -> Int
+evaluateMaterial b c = sum [ w * numberOf b c pt
+                           | pt <- [ Queen,  Rook, Bishop, Knight, Pawn ]
+                           , let w = pieceValue pt
+                           ]
 
 
 ------------------------------------------------------------------------------
