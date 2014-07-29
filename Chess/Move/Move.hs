@@ -123,7 +123,7 @@ otherMoveSansParser b = do
   let (f, t) = disambiguity b pc ds
       enp    = enPassantSquare b f t
   p <- optionMaybe $
-       liftM upperToPromotion (char '=' >> oneOf "NBRQ")
+       liftM upperToPromotion (try $ char '=' >> oneOf "NBRQ")
   _ <- optionMaybe $ oneOf "#+"
   return
     $ (promotion .~ p)

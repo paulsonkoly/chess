@@ -84,7 +84,7 @@ applyOp b (Id ids) epdr = do
   putStrLn $ "  Running " ++ ids
   return $ epdr { board = Just b, ident = ids }
   
-applyOp _ (Comment _ cs) epdr = return $ epdr { comment = cs }
+applyOp _ (Comment _ cs) epdr = return $ epdr { comment = show $ cs }
 
 applyOp _ _ epdr = return epdr
 

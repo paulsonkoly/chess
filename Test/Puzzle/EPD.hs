@@ -17,16 +17,19 @@ import Chess.Move
 
 
 ------------------------------------------------------------------------------
--- EPD operations with the position
+-- | EPD operations with the position
 data EPD = EPD Board [ Operation ]
 
 ------------------------------------------------------------------------------
--- An EPD operation
+-- | An EPD operation
 data Operation = AnalysisCountNodes           
                | AnalysisCountSeconds
                | AvoidMove [ Move ]
                | BestMove [ Move ]
-               | Comment Int String
+                 -- | The STS suite uses c0 to encode secondary moves and
+                 -- their points. Left is a normal comment, Right is the STS
+                 -- moves with their point value.
+               | Comment Int (Either String [ (Move, Int) ])
                | Evaluation Int
                | MateFullMoveCount Int
                | AcceptDraw
@@ -51,7 +54,7 @@ data Operation = AnalysisCountNodes
 
 
 ------------------------------------------------------------------------------
--- Parses mulitple EPDs separated by newlines
+-- | Parses mulitple EPDs separated by newlines
 epdParser :: Parser [ EPD ]
 epdParser = do
   epds <- lineParser `endBy` (char ';' >> newline)
@@ -91,8 +94,8 @@ operationParser b =
   <|> stringOperationParser "tcgs" TelecomGameSelector
   <|> stringOperationParser "tcri" TelecomReceiverId
   <|> stringOperationParser "tcsi" TelecomSenderId
-  <|> countedOperationParser 'c' Comment
-  <|> countedOperationParser 'v' VariationName
+  <|> commentOperationParser b
+  <|> countedOperationParser 'v' stringParser VariationName
   <|> movesOperationParser "am" AvoidMove b
   <|> movesOperationParser "bm" BestMove b
   <|> moveOperationParser "pm" PredictedMove b
@@ -140,13 +143,30 @@ stringParser = between (char '"') (char '"') (many $ noneOf "\"")
 ------------------------------------------------------------------------------
 countedOperationParser
   :: Char                         -- ^ opcode
-  -> (Int -> String -> Operation) -- ^ constructor
+  -> Parser a                     -- ^ the parser for the inner data
+  -> (Int -> a -> Operation)      -- ^ constructor
   -> Parser Operation
-countedOperationParser opcode constr = do
+countedOperationParser opcode p constr = do
   n <- try $ char opcode >> digit
   void $ char ' '
-  s <- stringParser
+  s <- p
   return $ constr (ord n - ord '0') s
+
+
+------------------------------------------------------------------------------
+commentOperationParser :: Board -> Parser Operation
+commentOperationParser b =
+  countedOperationParser
+    'c' (try commentRightParser <|> commentLeftParser) Comment
+  where
+    commentRightParser = liftM Right $ between (char '"') (char '"')
+                         $ moveValueParser `sepBy` string ", "
+    commentLeftParser  = liftM Left stringParser
+    moveValueParser    = do
+      m <- moveSansParser b
+      void $ char '='
+      v <- intParser
+      return (m, v)
 
 
 ------------------------------------------------------------------------------
