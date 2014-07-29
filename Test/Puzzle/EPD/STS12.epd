@@ -23,7 +23,7 @@
 2r2rk1/1p3ppp/p2q1n2/3pn3/N7/4P2P/PP2BPP1/2RQ1RK1 w - - bm Qd4; id "STS(v12.0) Center Control.023";
 2r2rk1/1pp2qpb/1n2p2p/pP1p1P2/P2PPBP1/7P/3NQ3/R1R3K1 w - - bm Be5; c0 "Be5=10, Bg3=4, Ra3=4, Rf1=4"; id "STS(v12.0) Center Control.024";
 2r3k1/1b2q1pp/1pr1p3/4B3/2P1p3/4P3/4QPPP/1R1R2K1 w - - bm Rd4; c0 "Rd4=10, h3=2, h4=2, Qg4=2"; id "STS(v12.0) Center Control.025";
-2r3k1/p2npp2/p2p1bp1/3P4/1qN1PQ1P/1P2B3/r5P1/1R3R1K b - - bm Ne5; c0 "Ne5=10, a5=7, Bd4=10Qb8=6, Rc7=6"; id "STS(v12.0) Center Control.026";
+2r3k1/p2npp2/p2p1bp1/3P4/1qN1PQ1P/1P2B3/r5P1/1R3R1K b - - bm Ne5; c0 "Ne5=10, a5=7, Bd4=10, Qb8=6, Rc7=6"; id "STS(v12.0) Center Control.026";
 2r3k1/ppr2p2/4b2p/4b1p1/P7/2N1P3/1PB2PPP/2RRK3 w - - bm Be4; c0 "Be4=10, Bd3=6, h3=6, Rd3=6"; id "STS(v12.0) Center Control.027";
 2r4k/5p1p/1prp1q1P/2n1p1p1/p3P1P1/P3BP2/1PP5/1KRR3Q w - - bm Rd5; c0 "Rd5=10, Qg2=3, Qh3=7, Qh5=5, Re1=6, Rf1=7"; id "STS(v12.0) Center Control.028";
 2r5/1b2kp1p/3qp1p1/1B6/3pn2N/8/PP2QPPP/4R1K1 b - - bm Qd5; c0 "Qd5=10, Nf6=4, Qf4=5, Rc5=4"; id "STS(v12.0) Center Control.029";
@@ -48,7 +48,7 @@
 4r1k1/1pb1qp2/p1b3p1/3p1rN1/P4P1p/1PPRB1P1/3Q3P/3R2K1 w - - bm Bd4; c0 "Bd4=10, Bf2=4, Nf3=3, Re1=4, Rf1=4"; id "STS(v12.0) Center Control.048";
 4r1k1/3r1p1p/3p2p1/3P2Q1/4PR2/2n2B1P/5qPK/R7 b - - bm Qd4; c0 "Qd4=10, Qd2=1, Qe3=1, Ra8=6, Rb7=1"; id "STS(v12.0) Center Control.049";
 4r1k1/4r1pp/p7/3n4/2p1P3/2P1BPN1/P1P4P/1K2R3 w - - bm Bd4; c0 "Bd4=10, Bd2=7, Kc1=7, Nf5=7"; id "STS(v12.0) Center Control.050";
-4r1k1/p5b1/P2p1pp1/q1pP3p/2Pn1BbP/2NP2P1/3Q2BK/1R6 w - - bm Ne4; c0 "Ne4=10, Be5=7, Kh1=6, Nb5=10Rb7=7"; id "STS(v12.0) Center Control.051";
+4r1k1/p5b1/P2p1pp1/q1pP3p/2Pn1BbP/2NP2P1/3Q2BK/1R6 w - - bm Ne4; c0 "Ne4=10, Be5=7, Kh1=6, Nb5=10, Rb7=7"; id "STS(v12.0) Center Control.051";
 4r1k1/pb2qp1p/4n2P/3p1pP1/1P1N1Q2/2N5/P1P5/5R1K w - - bm Qe5; c0 "Qe5=10, Qd2=1"; id "STS(v12.0) Center Control.052";
 4r1k1/R3rpp1/1p3n1p/8/2Q5/4B2P/1q3PP1/3R2K1 w - - bm Bd4; c0 "Bd4=10, Raa1=3, Rxe7=2"; id "STS(v12.0) Center Control.053";
 4r2k/1q4p1/p2Bp2p/P3P3/1PpN2P1/2Pb2b1/Q7/K2R4 b - - bm Qe4; c0 "Qe4=10, Qa8=2, Qd7=1, Qf7=1"; id "STS(v12.0) Center Control.054";

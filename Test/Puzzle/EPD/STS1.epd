@@ -1,6 +1,6 @@
 1kr5/3n4/q3p2p/p2n2p1/PppB1P2/5BP1/1P2Q2P/3R2K1 w - - bm f5; id "Undermine.001"; c0 "f5=10, Be5+=2, Bf2=3, Bg4=2";
 1n5k/3q3p/pp1p2pB/5r2/1PP1Qp2/P6P/6P1/2R3K1 w - - bm c5; id "Undermine.002"; c0 "c5=10, Qd4+=4, b5=4, g4=3";
-1n6/4bk1r/1p2rp2/pP2pN1p/K1P1N2P/8/P5R1/3R4 w - - bm c5; id "Undermine.003"; c0 "c5=10, Rd3=7, Rdd2=7, Rg3=7 Rd5=9";
+1n6/4bk1r/1p2rp2/pP2pN1p/K1P1N2P/8/P5R1/3R4 w - - bm c5; id "Undermine.003"; c0 "c5=10, Rd3=7, Rdd2=7, Rg3=7, Rd5=9";
 1nr5/1k5r/p3pqp1/3p4/1P1P1PP1/R4N2/3Q1PK1/R7 w - - bm b5; id "Undermine.004"; c0 "b5=10, Kg3=4, Ng5=4, Qe3=4";
 1q2r1k1/1b2bpp1/p2ppn1p/2p5/P3PP1B/2PB1RP1/2P1Q2P/2KR4 b - - bm c4; id "Undermine.005"; c0 "c4=10, Bc6=7, Qa8=7, Qc8=7";
 1q4k1/5p1p/p1rprnp1/3R4/N1P1P3/1P6/P5PP/3Q1R1K w - - bm e5; id "Undermine.006"; c0 "e5=10, Nc3=3, Qd3=1, Qf3=2";
