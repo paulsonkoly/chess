@@ -62,12 +62,6 @@ anyMove b = let ok  = any (legal b)
                || ok (pawnPromotions b)
 
 
--- | my king position
-mKingPos :: Board -> Square
-mKingPos b = head $ toList $ piecesOf b (b^.next) King
-{-# INLINE mKingPos #-}
-
-
 -- | enemy king position
 eKingPos :: Board -> Square
 eKingPos b = head $ toList $ piecesOf b (b^.opponent) King
@@ -166,11 +160,6 @@ pawnEnPassants b = do
 -- | pieces that can give discovered checks
 discoverer :: Board -> BitBoard
 discoverer b = discovererOrPinned b (b^.opponent) (b^.next)
-
-
--- | pieces that are pinned
-pinned :: Board -> BitBoard
-pinned b = discovererOrPinned b (b^.next) (b^.next)
 
 
 discovererOrPinned
@@ -341,39 +330,6 @@ check b c inc m = (inc || m^.piece == King) && inCheck (makeMoveSimplified m b) 
 
 
 legal :: Board -> Move -> Bool
-legal b m
-  | isJust (m^.enPassantTarget) = not $ inCheck (makeMoveSimplified m b) (b^.next)
-  | (m^.piece) == King          = not $ inCheck (makeMoveSimplified m b) (b^.next)
-                                  -- >,-,-,-,-,-,-,-,-, isAttacked b (opponent' $ b^.next) (m^.to)
-                                  -- >| |r| | | |K| | | is not correct as in this position g8
-                                  -- >| | | | | | | | | is not attacked, therefore allows f8g8
-                                  -- >| | |k| | | | | |
-                                  -- >| | | | | | | | |
-                                  -- >| | | | | | | | |
-                                  -- >| | | | | | | | |
-                                  -- >| | | | | | | | |
-                                  -- >| | | | | | | | |
-                                  -- >'-'-'-'-'-'-'-'-'
-  | otherwise                   = let checkers = attackedFromBB b (occupancy b) (b^.opponent) (mKingPos b)
-                                      pinCheck = (pinned b .&. fromSquare (m^.from)) == mempty -- not pinned
-                                                 -- or pinned, but staying in line with the King
-                                                 || lineBB (mKingPos b) (m^.to) .&. fromSquare (m^.from) /= mempty
-                                  in case popCount checkers of
-                                    0 -> pinCheck
-                                    1 -> if m^.capturedPiece == Just Knight || m^.capturedPiece == Just Pawn
-                                         then fromSquare (m^.to) == checkers && pinCheck -- Capture the checking piece
-                                              -- >,-,-,-,-,-,-,-,-, the pinCheck above is nesecarry as in this position we
-                                              -- >| | | | | |k|r|R| capture the checking piece, but we do that with a pinned
-                                              -- >| | | | | | |Q| | piece (g8g7)
-                                              -- >| | | | | | | | |
-                                              -- >| | | | | | | | |
-                                              -- >| | |K| | | | | |
-                                              -- >| | | | | | | | |
-                                              -- >| | | | | | | | |
-                                              -- >| | | | | | | | |
-                                              -- >'-'-'-'-'-'-'-'-'
-                                         else lineBB (mKingPos b) (head $ toList checkers) .&. fromSquare (m^.to) /= mempty && pinCheck
-                                    2 -> False -- Handled by the King case, only King moves can be legal
-                                    _ -> error "the king is attacked by more then 2 pieces"
+legal b m = not $ inCheck (makeMoveSimplified m b) (b^.next)
 
   
