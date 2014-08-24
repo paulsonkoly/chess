@@ -1,11 +1,11 @@
 module Chess.Move
    ( module M
    -- * properties
-   , prop_MoveBoardAfter
-   , prop_numberOfPieces
-   , prop_numberOfKings
-   , prop_zobrist
-   , prop_MoveLegalityCheck
+   -- , prop_MoveBoardAfter
+   -- , prop_numberOfPieces
+   -- , prop_numberOfKings
+   -- , prop_zobrist
+   -- , prop_MoveLegalityCheck
    )
    where
 
@@ -17,7 +17,7 @@ import Chess.Move.Move       as M
 import Control.Lens
 import Data.BitBoard
 
-
+{-
 prop_MoveBoardAfter :: Board -> Bool
 prop_MoveBoardAfter b = all prop_Board $ map (`makeMove` b) (moves b)
 
@@ -42,3 +42,4 @@ prop_zobrist b = let b' = (hash .~ B.calcHash b) b
 prop_MoveLegalityCheck :: Board -> Bool
 prop_MoveLegalityCheck b = let bs = [ makeMove m b | m <- moves b ]
                            in all (not . flip inCheck (b^.next)) bs
+-}

@@ -5,29 +5,28 @@ module Chess.Search.Algorithm
        ) where
 
 ------------------------------------------------------------------------------
-import           Control.Applicative       ((<$>))
-import           Control.Monad             (liftM, when)
-import           Control.Monad.State       (get, liftIO)
-import           Data.Bits                 (popCount)
-import           Data.Foldable             (forM_)
+import           Control.Applicative ((<$>))
+import           Control.Monad (liftM, when)
+import           Control.Monad.State (get, liftIO)
+import           Data.Bits (popCount)
+import           Data.Foldable (forM_)
 
-import           Control.Lens              ((+=), (.=), (^.), (%=), use)
+import           Control.Lens ((+=), (.=), (^.), (%=), use)
 import           Data.Time.Clock
 
 import           Chess.Board
 import           Chess.Evaluation
-import qualified Chess.Killer              as K
+import qualified Chess.Killer as K
 import           Chess.Move
-import qualified Chess.PVStore             as PVS
+import qualified Chess.PVStore as PVS
 import           Chess.Search.Search
 import qualified Chess.Search.SearchResult as SR (moves)
 import           Chess.Search.SearchResult hiding (moves)
 import           Chess.Search.SearchState
 import           Chess.TimeControl
-import qualified Chess.TransPosCache       as TPC
+import qualified Chess.TransPosCache as TPC
 import           Data.ChessTypes
 import           Data.List.Extras
-
 
 
 ------------------------------------------------------------------------------
@@ -169,10 +168,10 @@ withTransPosCache mx d alpha beta f = do
 ------------------------------------------------------------------------------
 -- iterates with killer heuristics
 withKiller
-  :: [ Move ] -- ^ move list
-  -> Int      -- ^ max depth
-  -> Int      -- ^ depth
-  -> ( [ Move ] -> Search (Maybe LoopResult))
+  :: [ PseudoLegalMove ] -- ^ move list
+  -> Int                 -- ^ max depth
+  -> Int                 -- ^ depth
+  -> ( [ PseudoLegalMove ] -> Search (Maybe LoopResult))
   -> Search (Maybe LoopResult)
 withKiller ml mx d f = do
   ml' <- liftM (K.heuristics (mx - d) ml) (use kill)
@@ -189,10 +188,10 @@ withKiller ml mx d f = do
 ------------------------------------------------------------------------------
 -- iterates with PV store heuristics
 withPVStore
-  :: [ Move ] -- ^ move list
-  -> Int      -- ^ max depth
-  -> Int      -- ^ depth
-  -> ( [Move] -> Search (Maybe LoopResult ))
+  :: [ PseudoLegalMove ] -- ^ move list
+  -> Int                 -- ^ max depth
+  -> Int                 -- ^ depth
+  -> ( [ PseudoLegalMove ] -> Search (Maybe LoopResult ))
   -> Search (Maybe LoopResult)
 withPVStore ml mx d f = do
   ml' <- liftM (PVS.heuristics (mx - d) ml) (use pv)
@@ -206,11 +205,11 @@ withPVStore ml mx d f = do
 ------------------------------------------------------------------------------
 -- iterates with a Maybe Move first
 withMaybeMove
-  :: [ Move ]   -- ^ move list
-  -> Maybe Move -- ^ a good move if any ( from the tt )
-  -> ([Move] -> Search (Maybe LoopResult))
+  :: [ PseudoLegalMove ]    -- ^ move list
+  -> Maybe Move             -- ^ a good move if any ( from the tt )
+  -> ([ PseudoLegalMove ] -> Search (Maybe LoopResult))
   -> Search (Maybe LoopResult)
-withMaybeMove ml (Just m) f = f (toFront m ml)
+withMaybeMove ml (Just m) f = f (toFront (mkPseudo m) ml)
 withMaybeMove ml Nothing  f = f ml
 {-# INLINE withMaybeMove #-}
 
@@ -218,11 +217,11 @@ withMaybeMove ml Nothing  f = f ml
 ------------------------------------------------------------------------------
 -- iterates with all store heuristics
 withStores
-  :: [ Move ]   -- ^ move list
-  -> Maybe Move -- ^ a good move if any ( from the tt )
-  -> Int        -- ^ max depth
-  -> Int        -- ^ depth
-  -> ( [Move] -> Search (Maybe LoopResult) )
+  :: [ PseudoLegalMove ]   -- ^ move list
+  -> Maybe Move            -- ^ a good move if any ( from the tt )
+  -> Int                   -- ^ max depth
+  -> Int                   -- ^ depth
+  -> ( [ PseudoLegalMove ] -> Search (Maybe LoopResult) )
   -> Search (Maybe LoopResult)
 withStores ml mm mx d f =
   withKiller ml mx d $ \ml'    ->
@@ -234,7 +233,7 @@ withStores ml mm mx d f =
 ------------------------------------------------------------------------------
 -- iterates search on a move list
 iterateMoves
-  :: [ Move ]
+  :: [ PseudoLegalMove ]
   -> Int                                    -- ^ depth
   -> Int                                    -- ^ alpha
   -> Int                                    -- ^ beta
@@ -242,7 +241,8 @@ iterateMoves
   -> (Bool -> Move -> Int -> Int -> Search (Maybe SearchResult))
   -> Search (Maybe LoopResult)
 iterateMoves ml d alpha beta rep ac = do
-  mlr <- go (0::Int) (Cacheable alpha TPC.Upper) ml
+  leg <- liftM mkLegality $ use board
+  mlr <- go leg (0::Int) (Cacheable alpha TPC.Upper) ml
   forM_ mlr $ \lr -> case lr of
     Cacheable s t -> do
       b <- use board
@@ -250,29 +250,33 @@ iterateMoves ml d alpha beta rep ac = do
     _ -> return ()
   return mlr
 
-  where go _ prev [] = return (Just prev)
-        go n prev (m:ms) = abortable $ do
+  where go _ _ prev [] = return (Just prev)
+        go leg n prev (psm:ms) = abortable $ do            
             let prevVal = score prev
-            mnxt <- ac (n == 0) m prevVal beta
-            maybe (return Nothing)
-                  (\nxt -> if
+                mm      = legalCheck leg psm
+            case mm of
+             Just m -> do
+               mnxt <- ac (n == 0) m prevVal beta
+               maybe (return Nothing)
+                 (\nxt -> if
                       
-                       | nxt^.eval >= beta ->
-                          return $ Just $ Cacheable beta (TPC.Lower m)
+                     | nxt^.eval >= beta ->
+                         return $ Just $ Cacheable beta (TPC.Lower m)
 
-                       | nxt^.eval > prevVal ->
-                          let this = if null (nxt^.SR.moves)
-                                     then Mere (nxt^.eval)
-                                     else Cacheable (nxt^.eval)
-                                            (TPC.Exact (head $ nxt^.SR.moves)
-                                                       (tail $ nxt^.SR.moves))
-                          in when rep (info d nxt) >> go (n+1) this ms
+                     | nxt^.eval > prevVal ->
+                         let this = if null (nxt^.SR.moves)
+                                    then Mere (nxt^.eval)
+                                    else Cacheable (nxt^.eval)
+                                         (TPC.Exact (head $ nxt^.SR.moves)
+                                          (tail $ nxt^.SR.moves))
+                         in when rep (info d nxt) >> go leg (n+1) this ms
 
-                       | otherwise -> do
-                          when rep $ report $ "currmove " ++ renderShortMove m
-                             ++ " currmovenumber " ++ show n
-                          go (n+1) prev ms)
-                  mnxt
+                     | otherwise -> do
+                         when rep $ report $ "currmove " ++ renderShortMove m
+                           ++ " currmovenumber " ++ show n
+                         go leg (n+1) prev ms)
+                 mnxt
+             Nothing -> go leg (n+1) prev ms
 
 -- percentage :: Int -> Int -> Int
 -- percentage a b = if a == 0 then 0 else 100 * b `div` a
@@ -299,23 +303,23 @@ negaScout mx d alpha' beta' c =
         nCnt += 1
         liftM (\b -> Just $ SearchResult [] $ c * evaluate b) $ use board
       else do
-        ml <- liftM moves $ use board
+        ml   <- liftM moves $ use board
         mr' <- withStores ml mr mx d $ \ml' ->
           iterateMoves ml' d alpha beta (mx == d) $ \f m a b ->
-            withMove m $ m
-              <++> if d == 1
-                   then ((-1)*) <@> quiscene mx (d - 1) (-b) (-a) (-c) m
-                   else
-                     if not f
-                     then do
-                       mn <- ((-1)*) <@> negaScout mx (d - 1) (-a - 1) (-a) (-c)
-                       maybe (return Nothing)
-                         (\n ->
-                           if a < n^.eval && n^.eval < b
-                           then ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
-                           else return mn)
-                         mn
-                     else ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
+               withMove m $ m
+               <++> if d == 1
+                    then ((-1)*) <@> quiscene mx (d - 1) (-b) (-a) (-c) m
+                    else
+                      if not f
+                      then do
+                        mn <- ((-1)*) <@> negaScout mx (d - 1) (-a - 1) (-a) (-c)
+                        maybe (return Nothing)
+                          (\n ->
+                            if a < n^.eval && n^.eval < b
+                            then ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
+                            else return mn)
+                          mn
+                      else ((-1)*) <@> negaScout mx (d - 1) (-b) (-a) (-c)
         return $ loopResultToSearchResult <$> mr'
 
 
@@ -339,9 +343,9 @@ quiscene mx d alpha' beta' c pm =
         tpc %= TPC.transPosCacheInsert brd d beta (TPC.Lower pm)
         return $ Just $ SearchResult [] beta
       else do
-        let ml = if inCheck brd (brd^.next) && d > -10
+        let ml = {-if inCheck brd (brd^.next) && d > -10
                  then moves brd
-                 else forcingMoves brd
+                 else -} if d > -10 then forcingMoves brd else []
             alpha'' = max alpha standPat
            
         mr' <- withStores ml mr mx d $ \ml' ->

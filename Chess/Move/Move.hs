@@ -49,7 +49,7 @@ data Move = Move
             , _capturedPiece   :: ! (Maybe PieceType)
             , _enPassantTarget :: ! (Maybe Square)
             , _castle          :: ! (Maybe Castle)
-            } deriving (Show, Eq)
+            } deriving (Show, Eq)                       
 
 
 $(makeLenses ''Move)
@@ -58,6 +58,22 @@ $(makeLenses ''Move)
 ------------------------------------------------------------------------------
 defaultMove :: Square -> Square -> PieceType -> Colour -> Move
 defaultMove f t pt c = Move f t pt c Nothing Nothing Nothing Nothing
+
+
+------------------------------------------------------------------------------
+-- Move has is unique hash on a given board only.
+moveHash :: Move -> Int
+moveHash m =
+  let promoHash = maybe 0 ((+1) . fromEnum) $ m^.promotion
+  in (promoHash `shiftL` 12)
+     .|. (fromEnum (m^.from) `shiftL` 6)
+     .|. fromEnum (m^.to)
+
+
+------------------------------------------------------------------------------
+-- | Instance to create Sets with moves on a given Board.
+instance Ord Move where
+  compare a b = (moveHash a) `compare` (moveHash b)
 
 
 ------------------------------------------------------------------------------
@@ -303,6 +319,4 @@ positionValue Queen _ sq =
   , 21 , 23 , 23 , 23 , 23 , 23 , 23 , 21
   , 21 , 21 , 21 , 21 , 21 , 21 , 21 , 21
   ] ! fromEnum sq
-                             
-
 

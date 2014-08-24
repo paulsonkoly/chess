@@ -37,9 +37,9 @@ clearUpTo d (PVStore s) = PVStore $ (V.take $ d - 1) s
 -- the new move list with the heuristics applied
 heuristics
   :: Int      -- ^ distance from start depth ( or in other words real depth )
-  -> [ Move ] -- ^ previous move list
+  -> [ PseudoLegalMove ] -- ^ previous move list
   -> PVStore
-  -> [ Move ]
+  -> [ PseudoLegalMove ]
 heuristics d ml (PVStore v)
   | V.length v <= d = ml
-  | otherwise       = toFront (v ! d) ml
+  | otherwise       = toFront (mkPseudo (v ! d)) ml

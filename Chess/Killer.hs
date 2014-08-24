@@ -85,11 +85,11 @@ clearLevel d k@(Killer v)
 -- | the new move list with the heuristics applied
 heuristics
   :: Int      -- ^ distance from start depth ( or in other words real depth )
-  -> [ Move ] -- ^ previous move list
+  -> [ PseudoLegalMove ] -- ^ previous move list
   ->  Killer
-  -> [ Move ]
+  -> [ PseudoLegalMove ]
 heuristics d ms (Killer v) =
-  let m   = map snd $ v ! d
+  let m   = map (mkPseudo . snd) $ v ! d
       -- the reverse order of the entries nicely matches toFront
       ms' = foldl (flip toFront) ms m
   in if d >= maxKillerSize then ms else ms'
