@@ -5,6 +5,9 @@ module Chess.Move.Generator
        , mkPseudo
        , mkLegality
        , legalCheck
+       , capturedPiece'
+       , from'
+       , to'
          -- * Generators
        , moves
        , forcingMoves
@@ -35,7 +38,7 @@ import           Data.Square
 
 ------------------------------------------------------------------------------
 -- | A move that might leave our king in check
-newtype PseudoLegalMove = PseudoLegalMove Move deriving (Eq, Ord)
+newtype PseudoLegalMove = PseudoLegalMove Move deriving (Show, Eq, Ord)
 
 
 data Legality = Legality
@@ -77,6 +80,18 @@ legalCheck l (PseudoLegalMove m) =
 -- | Conversion from Move to PseudoLegalMove
 mkPseudo :: Move -> PseudoLegalMove
 mkPseudo = PseudoLegalMove
+
+
+capturedPiece' :: PseudoLegalMove -> Maybe PieceType
+capturedPiece' (PseudoLegalMove m) = m^.capturedPiece
+
+
+from' :: PseudoLegalMove -> Square
+from' (PseudoLegalMove m) = m^.from
+
+
+to' :: PseudoLegalMove -> Square
+to' (PseudoLegalMove m) = m^.to
 
 
 ------------------------------------------------------------------------------

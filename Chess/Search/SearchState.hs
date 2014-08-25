@@ -11,6 +11,7 @@ module Chess.Search.SearchState
        , tpc
        , kill
        , pv
+       , hist
        , tpcHit
        , tpcMiss
        , nCnt
@@ -24,6 +25,7 @@ import Control.Lens
 import Data.Time.Clock
 
 import Chess.Board hiding (hash)
+import Chess.History
 import Chess.Killer
 import Chess.PVStore
 import Chess.TimeControl
@@ -40,6 +42,7 @@ data SearchState = SearchState
                    , _tpc       :: TransPosCache
                    , _kill      :: Killer
                    , _pv        :: PVStore
+                   , _hist      :: History
                    , _tpcHit    :: ! Int
                    , _tpcMiss   :: ! Int
                    , _nCnt      :: ! Int
@@ -69,6 +72,7 @@ mkSearchState abort ponder =
    mkTransPosCache
    mkKiller
    mkPVStore
+   mkHistory
    0 0 0
    Nothing
 

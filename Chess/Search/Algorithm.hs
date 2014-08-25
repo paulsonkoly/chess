@@ -16,6 +16,7 @@ import           Data.Time.Clock
 
 import           Chess.Board
 import           Chess.Evaluation
+import qualified Chess.History as H
 import qualified Chess.Killer as K
 import           Chess.Move
 import qualified Chess.PVStore as PVS
@@ -56,6 +57,7 @@ search tc = do
   tpc       %= TPC.transPosCacheDeflate
   pv        .= PVS.mkPVStore
   kill      .= K.mkKiller
+  hist      .= H.mkHistory
   now       <- liftIO getCurrentTime
   clock     .= Just now
   timeStats .= mkTimeStats
@@ -186,6 +188,27 @@ withKiller ml mx d f = do
 
 
 ------------------------------------------------------------------------------
+-- iterates with history heuristics
+withHistory
+  :: [ PseudoLegalMove ] -- ^ move list
+  -> Int                 -- ^ depth
+  -> ( [ PseudoLegalMove ] -> Search (Maybe LoopResult))
+  -> Search (Maybe LoopResult)
+withHistory ml d f =
+  if d >= 0
+  then do
+    ml' <- liftM (H.heuristics ml) (use hist)
+    mlr <- f ml'
+    forM_ mlr $ \lr -> do
+      case lr of
+       Cacheable _ (TPC.Lower m) -> hist %= H.insert d m ml'
+       _                         -> return ()
+    return mlr
+  else f ml
+{-# INLINE withHistory #-}
+
+
+------------------------------------------------------------------------------
 -- iterates with PV store heuristics
 withPVStore
   :: [ PseudoLegalMove ] -- ^ move list
@@ -224,9 +247,10 @@ withStores
   -> ( [ PseudoLegalMove ] -> Search (Maybe LoopResult) )
   -> Search (Maybe LoopResult)
 withStores ml mm mx d f =
-  withKiller ml mx d $ \ml'    ->
-  withPVStore ml' mx d $ \ml'' ->
-  withMaybeMove ml'' mm f
+  withHistory ml d $ \ml'        ->
+  withKiller ml' mx d $ \ml''    ->
+  withPVStore ml'' mx d $ \ml''' ->
+  withMaybeMove ml''' mm f 
 {-# INLINE withStores #-}
 
 
