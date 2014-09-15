@@ -16,109 +16,187 @@ import           Chess.Board hiding (calcHash)
 import           Chess.Zobrist
 
 
+------------------------------------------------------------------------------
 -- | makes a move on the board
 makeMove :: Move -> Board -> Board
-makeMove m b = let cstlTrs = castleRightsByColour (b^.next) %~ intersect (castleRights m)
-                   nxtTrs  = next %~ opponent'
-                   enpTrs  = enPassant .~ if isDoubleAdvance m then Just (m^.to) else Nothing
-                   hshTrs  = hash .~ calcHash b m
-               in hshTrs $ enpTrs $ nxtTrs $ cstlTrs $ makeMoveSimplified m b
+makeMove m b =
+  let mcsTrs  =
+        castleRightsByColour (b^.next) %~ intersect (castleRightsMine m)
+      opcsTrs =
+        castleRightsByColour (b^.opponent) %~ intersect (castleRightsOpp m)
+      nxtTrs  = next %~ opponent'
+      enpTrs  = enPassant .~ if isDoubleAdvance m
+                             then Just (m^.to)
+                             else Nothing
+      hshTrs  = hash .~ calcHash b m
+  in hshTrs $ enpTrs $ nxtTrs $ mcsTrs $ opcsTrs $ makeMoveSimplified m b
 
 
+------------------------------------------------------------------------------
 -- | same as makeMove except faster but only update where the pieces are
 makeMoveSimplified :: Move -> Board -> Board
-makeMoveSimplified m b = let (f, t) = (fromBB m, toBB m)
-                             ft     = f `xor` t
-                             mvsTrs = maybe id (\c -> putPiece (rookCaslteBB (b^.next) c) (b^.next) Rook) (m^.castle)
-                                      . maybe id (\e -> putPiece (fromSquare e) (b^.opponent) Pawn) (m^.enPassantTarget)
-                                      . maybe id (promote t) (m^.promotion)
-                                      . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
-                                      . putPiece ft (b^.next) (m^.piece)
-                         in mvsTrs b
+makeMoveSimplified m b =
+  let (f, t) = (fromBB m, toBB m)
+      ft     = f `xor` t
+      mvsTrs = maybe id
+               (\c -> putPiece (rookCastleBB (b^.next) c) (b^.next) Rook)
+               (m^.castle)
+               . maybe id
+               (\e -> putPiece (fromSquare e) (b^.opponent) Pawn)
+               (m^.enPassantTarget)
+               . maybe id (promote t) (m^.promotion)
+               . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
+               . putPiece ft (b^.next) (m^.piece)
+  in mvsTrs b
 
 
+------------------------------------------------------------------------------
 fromBB :: Move -> BitBoard
 fromBB = fromSquare . (^.from)
 {-# INLINE fromBB #-}
 
 
+------------------------------------------------------------------------------
 toBB :: Move -> BitBoard
 toBB = fromSquare . (^.to)
 {-# INLINE toBB #-}
 
 
+------------------------------------------------------------------------------
 putPiece :: BitBoard -> Colour -> PieceType -> Board -> Board
 putPiece bb c pt = (piecesByColour c %~ xor bb) . (piecesByType pt %~ xor bb)
 {-# INLINE putPiece #-}
 
 
+------------------------------------------------------------------------------
 zPutPiece :: Square -> Colour -> PieceType -> Word64
 zPutPiece x y z = zobrist $ ZobristPiece x y z
 {-# INLINE zPutPiece #-}
 
 
+------------------------------------------------------------------------------
 promote :: BitBoard -> PieceType -> Board -> Board
 promote bb pt = (pawns %~ xor bb) . (piecesByType pt %~ xor bb)
 {-# INLINE promote #-}
 
 
-rookCasltePos :: Colour -> Castle -> (Square, Square)
-rookCasltePos White Long  = (toSquare aFile firstRank, toSquare dFile firstRank)
-rookCasltePos White Short = (toSquare fFile firstRank, toSquare hFile firstRank)
-rookCasltePos Black Long  = (toSquare aFile eighthRank, toSquare dFile eighthRank)
-rookCasltePos Black Short = (toSquare fFile eighthRank, toSquare hFile eighthRank)
-{-# INLINE rookCasltePos #-}
+------------------------------------------------------------------------------
+rookCastlePos :: Colour -> Castle -> (Square, Square)
+rookCastlePos White Long  =
+  (toSquare aFile firstRank, toSquare dFile firstRank)
+rookCastlePos White Short =
+  (toSquare fFile firstRank, toSquare hFile firstRank)
+rookCastlePos Black Long  =
+  (toSquare aFile eighthRank, toSquare dFile eighthRank)
+rookCastlePos Black Short =
+  (toSquare fFile eighthRank, toSquare hFile eighthRank)
+{-# INLINE rookCastlePos #-}
 
 
-rookCaslteBB :: Colour -> Castle -> BitBoard
-rookCaslteBB col ctl = fromList [ fst $ rookCasltePos col ctl, snd $ rookCasltePos col ctl ]
-{-# INLINE rookCaslteBB #-}
+------------------------------------------------------------------------------
+rookCastleBB :: Colour -> Castle -> BitBoard
+rookCastleBB col ctl =
+  fromList [ fst $ rookCastlePos col ctl, snd $ rookCastlePos col ctl ]
+{-# INLINE rookCastleBB #-}
 
 
-castleRights :: Move -> CastlingRights
-castleRights m
-  | m^.piece == King                                = mempty
-  | (m^.piece == Rook) && (file (m^.from) == aFile) = fromCastle Short
-  | (m^.piece == Rook) && (file (m^.from) == hFile) = fromCastle Long
-  | otherwise                                         = fromCastle Short <> fromCastle Long
-{-# INLINE castleRights #-}
+------------------------------------------------------------------------------
+myFirstRank :: Colour -> Rank
+myFirstRank White = firstRank
+myFirstRank Black = eighthRank
+{-# INLINE myFirstRank #-}
 
 
+------------------------------------------------------------------------------
+oppFirstRank :: Colour -> Rank
+oppFirstRank White = eighthRank
+oppFirstRank Black = firstRank
+{-# INLINE oppFirstRank #-}
+
+
+------------------------------------------------------------------------------
+castleRightsMine :: Move -> CastlingRights
+castleRightsMine m
+  | m^.piece == King                                                     =
+      mempty
+  | file (m^.from) == aFile && rank (m^.from) == myFirstRank (m^.colour) =
+      fromCastle Short
+  | file (m^.from) == hFile && rank (m^.from) == myFirstRank (m^.colour) =
+      fromCastle Long
+  | otherwise                                                            =
+      fromCastle Short <> fromCastle Long
+{-# INLINE castleRightsMine #-}
+
+
+------------------------------------------------------------------------------
+-- if I'm capturing to the opponent's rook position then he loses that castle
+-- right
+castleRightsOpp :: Move -> CastlingRights
+castleRightsOpp m
+  | file (m^.to) == aFile && rank (m^.to) == oppFirstRank (m^.colour) =
+      fromCastle Short
+  | file (m^.to) == hFile && rank (m^.to) == oppFirstRank (m^.colour) =
+      fromCastle Long
+  | otherwise                                                         =
+      fromCastle Short <> fromCastle Long
+{-# INLINE castleRightsOpp #-}
+
+
+------------------------------------------------------------------------------
 isDoubleAdvance :: Move -> Bool
 isDoubleAdvance m = m^.piece == Pawn && vDist (m^.from) ( m^.to) > 1
 {-# INLINE isDoubleAdvance #-}
 
 
+------------------------------------------------------------------------------
 -- | calculates hash based on the previous board
 calcHash :: Board -> Move -> Word64
-calcHash b m = b^.hash
-               `xor` zPutPiece (m^.from) (m^.colour) (m^.piece)
-               `xor` zPutPiece (m^.to) (m^.colour) (m^.piece)
-               `xor` capturedZ `xor` castleZ `xor` castleRMZ `xor` enPassantZ `xor` enPassantRMZ `xor` promotionZ `xor` flipSideZ
+calcHash b m =
+  b^.hash
+  `xor` zPutPiece (m^.from) (m^.colour) (m^.piece)
+  `xor` zPutPiece (m^.to) (m^.colour) (m^.piece)
+  `xor` capturedZ `xor` castleZ `xor` castleRMZ `xor` enPassantZ
+  `xor` enPassantRMZ `xor` promotionZ `xor` flipSideZ
 
-  where flipSideZ = zobrist (ZobristSide White) `xor` zobrist (ZobristSide Black)
+  where
+    flipSideZ = zobrist (ZobristSide White) `xor` zobrist (ZobristSide Black)
 
-        capturedZ = maybe 0 (zobrist . ZobristPiece (m^.to) (opponent' $ m^.colour)) (m^.capturedPiece)
+    capturedZ = maybe 0
+                (zobrist . ZobristPiece (m^.to) (opponent' $ m^.colour))
+                (m^.capturedPiece)
 
-        castleZ   = zobrist (ZobristCastlingRights (b^.whiteCastleRights) (b^.blackCastleRights)) -- old castling rights
-                    `xor` zobrist (ZobristCastlingRights newWhiteCastle newBlackCastle)
+    castleZ   = zobrist (ZobristCastlingRights
+                         (b^.whiteCastleRights)
+                         (b^.blackCastleRights))
+                `xor` zobrist (ZobristCastlingRights
+                               newWhiteCastle
+                               newBlackCastle)
 
-        newWhiteCastle = case m^.colour of
-          White -> castleRights m `intersect` (b^.whiteCastleRights)
-          Black -> b^.whiteCastleRights
+    newWhiteCastle = case m^.colour of
+      White -> castleRightsMine m `intersect` (b^.whiteCastleRights)
+      Black -> castleRightsOpp  m `intersect` (b^.whiteCastleRights)
 
-        newBlackCastle = case m^.colour of
-          White -> b^.blackCastleRights
-          Black -> castleRights m `intersect` (b^.blackCastleRights)
+    newBlackCastle = case m^.colour of      
+      White -> castleRightsOpp  m `intersect` (b^.blackCastleRights)
+      Black -> castleRightsMine m `intersect` (b^.blackCastleRights)
 
-        castleRMZ = maybe 0 (\c ->
-                              zPutPiece (fst (rookCasltePos (b^.next) c))  (b^.next) Rook
-                              `xor` zPutPiece (snd (rookCasltePos (b^.next) c)) (b^.next) Rook
-                            ) (m^.castle)
+    castleRMZ =
+      maybe 0 (\c ->
+                zPutPiece (fst (rookCastlePos (b^.next) c))  (b^.next) Rook
+                `xor`
+                zPutPiece (snd (rookCastlePos (b^.next) c)) (b^.next) Rook
+              ) (m^.castle)
 
-        enPassantZ   = zobrist (ZobristEnPassant $ b^.enPassant)
-                       `xor` zobrist (ZobristEnPassant $ if isDoubleAdvance m then Just (m^.to) else Nothing)
+    enPassantZ   = zobrist (ZobristEnPassant $ b^.enPassant)
+                   `xor` zobrist (ZobristEnPassant $ if isDoubleAdvance m
+                                                     then Just (m^.to)
+                                                     else Nothing)
 
-        enPassantRMZ = maybe 0 (\t -> zPutPiece t (opponent' (b^.next)) Pawn) (m^.enPassantTarget)
+    enPassantRMZ = maybe 0
+                   (\t -> zPutPiece t (opponent' (b^.next)) Pawn)
+                   (m^.enPassantTarget)
 
-        promotionZ   = maybe 0 (\p -> zPutPiece (m^.to) (m^.colour) Pawn `xor` zPutPiece (m^.to) (m^.colour) p) (m^.promotion)
+    promotionZ   = maybe 0
+                   (\p -> zPutPiece (m^.to) (m^.colour) Pawn
+                          `xor` zPutPiece (m^.to) (m^.colour) p)
+                   (m^.promotion)
