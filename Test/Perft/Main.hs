@@ -1,24 +1,34 @@
 module Main (main) where
 
-import           Data.Maybe
-import           Control.Monad
-import           Options.Applicative
-import           System.Exit
+import Control.Monad
+import Data.List (nub)
+import Data.Maybe
+import Options.Applicative
+import System.Exit
 
-import           Test.HUnit
+import Test.HUnit
 
-import           Chess.Move
-import           Chess.Board
+import Chess.Move
+import Chess.Board
 
 
+------------------------------------------------------------------------------
+legalMoves :: Board -> [ Move ]
+legalMoves b = 
+  let leg  = mkLegality b
+  in catMaybes $ map (legalCheck leg) $ nub $ moves b
+
+
+------------------------------------------------------------------------------
 perft :: Int -> Board -> Integer
 perft 0 _ = 0
-perft d b = let ms = moves b
+perft d b = let ms   = legalMoves b
             in if d == 1
                then fromIntegral $ length ms
                else sum [ perft (d - 1) (makeMove m b) | m <- ms ]
 
 
+------------------------------------------------------------------------------
 -- from http://chessprogramming.wikispaces.com/Perft+Results
 initialPerftResult :: Int -> Integer
 initialPerftResult 1  = 20
@@ -36,9 +46,13 @@ initialPerftResult 12 = 62854969236701747
 initialPerftResult 13 = 1981066775000396239
 initialPerftResult _  = undefined
 
+
+------------------------------------------------------------------------------
 testInitialPos :: Int -> Test
 testInitialPos n = perft n initialBoard ~?= initialPerftResult n
 
+
+------------------------------------------------------------------------------
 initialTests :: Test
 initialTests  =
   TestList [ TestLabel ("Initial Perft " ++ show n) $ testInitialPos n
@@ -46,11 +60,13 @@ initialTests  =
            ]
 
 
+------------------------------------------------------------------------------
 ruyLopezPosition :: Board
 ruyLopezPosition = fromJust $ fromFEN
   "r1bqkbnr/1pp2ppp/p1p5/4N3/4P3/8/PPPP1PPP/RNBQK2R b KQkq -"
 
 
+------------------------------------------------------------------------------
 ruyLopezPerftResult :: Int -> Integer
 ruyLopezPerftResult 1 =           36
 ruyLopezPerftResult 2 =         1147
@@ -60,10 +76,13 @@ ruyLopezPerftResult 5 =     48184273
 ruyLopezPerftResult 6 =   1552389766
 ruyLopezPerftResult _ = undefined
 
+
+------------------------------------------------------------------------------
 testRuyLopez :: Int -> Test
 testRuyLopez n = perft n ruyLopezPosition ~?= ruyLopezPerftResult n
 
 
+------------------------------------------------------------------------------
 ruyLopezTests :: Test
 ruyLopezTests =
   TestList [ TestLabel ("Ruy Lopez Perft " ++ show n) $ testRuyLopez n
@@ -71,41 +90,55 @@ ruyLopezTests =
            ]
 
 
+------------------------------------------------------------------------------
 allTests :: Test
 allTests = TestList [initialTests, ruyLopezTests]
 
 
+------------------------------------------------------------------------------
 data Config = Perft Board Int | Siblings Board
 
+
+------------------------------------------------------------------------------
 readInt :: String -> Maybe Int
 readInt s = fst <$> listToMaybe (reads s)
 
 
+------------------------------------------------------------------------------
 fenArgument :: Parser Board
 fenArgument = argument fromFEN (metavar "FEN")
 
 
+------------------------------------------------------------------------------
 fenCommandParser :: Parser Config
-fenCommandParser = Perft <$> fenArgument <*> argument readInt (metavar "DEPTH")
+fenCommandParser =
+  Perft <$> fenArgument <*> argument readInt (metavar "DEPTH")
 
 
+------------------------------------------------------------------------------
 siblingCommandParser :: Parser Config
 siblingCommandParser = Siblings <$> fenArgument
 
 
+------------------------------------------------------------------------------
 commandParser :: Parser (Maybe Config)
 commandParser = optional (subparser (
-     command "perft"    (info fenCommandParser     $ progDesc "Allows the user to specify a FEN & depth")
-  <> command "siblings" (info siblingCommandParser $ progDesc "Prints the siblings of the specified FEN")))
+     command "perft"
+     ( info fenCommandParser
+       $ progDesc "Allows the user to specify a FEN & depth")
+     <> command "siblings"
+     ( info siblingCommandParser
+       $ progDesc "Prints the siblings of the specified FEN")))
 
 
+------------------------------------------------------------------------------
 main :: IO ()
 main = do
   conf <- execParser ((info $ commandParser <**> helper) idm)
   case conf of
     Just (Perft b d)  -> print $ perft d b
     Just (Siblings b) -> void $ mapM putStrLn
-                         [ fen $ makeMove m b | m <- moves b ]
+                         [ fen $ makeMove m b | m <- legalMoves b ]
     Nothing           -> do
       c <- runTestTT allTests
       if cases c == tried c && failures c == 0 && errors c == 0

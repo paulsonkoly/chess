@@ -27,7 +27,6 @@ import qualified Data.Vector as V
 import           Chess.Move
 import           Data.List.Extras
 import           Data.Square
-import qualified Debug.Trace as Debug
 
 
 ------------------------------------------------------------------------------
