@@ -45,11 +45,11 @@ evaluateMaterial b c = sum [ w * numberOf b c pt
 
 
 ------------------------------------------------------------------------------
--- number of enemy Knights in the Kings quadrant + number of ray pseudo attacks
--- hitting the King.
+-- number of enemy Knights in the Kings quadrant + number of ray pseudo
+-- attacks hitting the King.
 evaluateKingSafety :: Board -> Colour -> Int
 evaluateKingSafety b c =
-  let kingP            = kingPos b c
+  let kingP            = kingByColour b c
       opp              = opponent' c
       (kingF, kingR)   = (file kingP, rank kingP)
       quadrant         = neighbourFilesBB kingF .&. neighbourRanksBB kingR
@@ -76,7 +76,8 @@ evaluateCastle b c =
       value cs         = castleValue cs - obstacles cs
       rookTrap Long f  = [ aFile .. f ]
       rookTrap Short f = [ f .. hFile ]
-      traps cs         = mconcat $ map fileBB $ rookTrap cs (file $ kingPos b c)
+      kFile            = file $ kingByColour b c
+      traps cs         = mconcat $ map fileBB $ rookTrap cs kFile
       alreadyCs cs     = castleF cs .&. baseR .&. piecesOf b c King /= mempty
                         && traps cs .&. baseR .&. piecesOf b c Rook == mempty
   in if piecesOf b (opponent' c) Queen == mempty
@@ -160,12 +161,6 @@ evaluatePawnPosition b c =
   in if endGame b
      then 5 * passed - 2 * double
      else 2 * popCount centralized  + popCount wkCentralized
-
-
-------------------------------------------------------------------------------
--- The King position
-kingPos :: Board -> Colour -> Square
-kingPos b c = head $ toList $ piecesOf b c King
 
 
 ------------------------------------------------------------------------------

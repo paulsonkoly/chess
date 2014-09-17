@@ -244,21 +244,15 @@ moveTo b t = do
 ------------------------------------------------------------------------------
 -- | enemy king position
 eKingPos :: Board -> Square
-eKingPos b = let k = piecesOf b (b^.opponent) King
-             in if k == mempty
-                 then error "opponent doesnt' have a king"
-                 else head $ toList $ piecesOf b (b^.next) King
+eKingPos b = kingByColour b (b^.opponent)
 {-# INLINE eKingPos #-}
 
 
 ------------------------------------------------------------------------------
 -- | my king position
 myKingPos :: Board -> Square
-myKingPos b = let k = piecesOf b (b^.next) King
-              in if k == mempty
-                 then error "I dont' have a king"
-                 else head $ toList $ piecesOf b (b^.next) King
-
+myKingPos b = kingByColour b (b^.next)
+{-# INLINE myKingPos #-}
 
 ------------------------------------------------------------------------------
 -- | knight, bishop, rook, queen simple checks - not discovered check
@@ -383,7 +377,7 @@ discovererOrPinned
   -> BitBoard
 discovererOrPinned b c1 c2 = mconcat $ do
   pt <- [ Rook, Bishop ]
-  let kingPos = head $ toList $ piecesOf b c1 King
+  let kingPos = kingByColour b c1
       -- King casting rays ..
       kingRay = pseudoAttackBB pt kingPos -- magic pt kingPos (occupancy b)
       casters = kingRay .&.

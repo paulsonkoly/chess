@@ -3,7 +3,6 @@ module Chess.Move
    -- * properties
    , prop_MoveBoardAfter
    , prop_numberOfPieces
-   , prop_numberOfKings
    , prop_zobrist
    , prop_MoveLegalityCheck
    )
@@ -33,13 +32,6 @@ prop_numberOfPieces b =
   let o = popCount $ occupancy b
       n = [ popCount $ occupancy $ makeMove m b | m <- legalMoves b ]
   in all (\x -> x == o || x == o - 1) n
-
-
-------------------------------------------------------------------------------
--- | Asserting that after a move the number of Kings is 2.
-prop_numberOfKings :: Board -> Bool
-prop_numberOfKings b =
-  all prop_BoardKingNum [ makeMove m b | m <- legalMoves b ]
 
 
 ------------------------------------------------------------------------------
