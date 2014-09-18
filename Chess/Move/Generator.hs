@@ -25,11 +25,13 @@ import           Data.Ord
 import           Control.Lens hiding (to, from)
 
 import           Chess.Board
+import qualified Chess.Board as B (opponent)
 import           Chess.Magic
 import           Chess.Move.Execute
 import           Chess.Move.Move
 import           Data.BitBoard
 import           Data.ChessTypes
+import qualified Data.ChessTypes as T (opponent)
 import           Data.Square
 
                                 --------------
@@ -55,7 +57,7 @@ $(makeLenses ''Legality)
 -- | Move legality checker constructor
 mkLegality :: Board -> Legality
 mkLegality b =
-  let checkers = attackedFromBB b (occupancy b) (b^.opponent) (myKingPos b)
+  let checkers = attackedFromBB b (occupancy b) (b^.B.opponent) (myKingPos b)
   in Legality b (checkers /= mempty) (pinned b) -- S.empty
 
 
@@ -92,7 +94,7 @@ to' (PseudoLegalMove m) = m^.to
 -- | Pseudo legal moves
 moves :: Board -> [ PseudoLegalMove ]
 moves b =
-  let checkers = attackedFromBB b (occupancy b) (b^.opponent) (myKingPos b)
+  let checkers = attackedFromBB b (occupancy b) (b^.B.opponent) (myKingPos b)
       cs = simpleChecks b
            ++ discoveredChecks b
            ++ pawnSimpleChecks b
@@ -113,7 +115,7 @@ moves b =
 -- | Checks, captures and promotions, or moving out of check
 forcingMoves :: Board -> [ PseudoLegalMove ]
 forcingMoves b =
-  let checkers = attackedFromBB b (occupancy b) (b^.opponent) (myKingPos b)
+  let checkers = attackedFromBB b (occupancy b) (b^.B.opponent) (myKingPos b)
       ms = simpleChecks b
             ++ discoveredChecks b
             ++ pawnSimpleChecks b
@@ -133,7 +135,7 @@ forcingMoves b =
 anyMove :: Board -> Bool
 anyMove b =
   let pins' = pinned b
-      checkers = attackedFromBB b (occupancy b) (b^.opponent) (myKingPos b)
+      checkers = attackedFromBB b (occupancy b) (b^.B.opponent) (myKingPos b)
   in if checkers /= mempty
      then any (legal b) $ defendCheck b checkers
      else or [ any (ok b pins') ms
@@ -220,7 +222,7 @@ captureTo :: Board -> Square -> [ Move ]
 captureTo b t = do
   pt <- [ Pawn, Knight, Bishop, Rook, Queen, King ]
   let sqrs = if pt == Pawn
-             then pawnAttackBB t (b^.opponent)
+             then pawnAttackBB t (b^.B.opponent)
              else moveFun b pt t
       pcs = sqrs .&. piecesOf b (b^.next) pt
   f <- toList pcs
@@ -244,15 +246,16 @@ moveTo b t = do
 ------------------------------------------------------------------------------
 -- | enemy king position
 eKingPos :: Board -> Square
-eKingPos b = kingByColour b (b^.opponent)
+eKingPos b = kingByColour (b^.B.opponent) b
 {-# INLINE eKingPos #-}
 
 
 ------------------------------------------------------------------------------
 -- | my king position
 myKingPos :: Board -> Square
-myKingPos b = kingByColour b (b^.next)
+myKingPos b = kingByColour (b^.next) b
 {-# INLINE myKingPos #-}
+
 
 ------------------------------------------------------------------------------
 -- | knight, bishop, rook, queen simple checks - not discovered check
@@ -322,7 +325,7 @@ pawnDiscoveredChecks b =
 ------------------------------------------------------------------------------
 pawnSimpleChecks :: Board -> [ Move ]
 pawnSimpleChecks b =
-  let kp = [ offset (eKingPos b) (direction (b^.opponent) lr)
+  let kp = [ offset (eKingPos b) (direction (b^.B.opponent) lr)
            | lr <- [ 7, 9]
            ]
   in pawnMoves b (\_ t -> F.any (== t) kp)
@@ -345,7 +348,7 @@ pawnCaptures b =
 
 ------------------------------------------------------------------------------
 pawnCapturesSorted :: Board -> [ Move ]
-pawnCapturesSorted = (sortBy captureHeuristics) . pawnCaptures
+pawnCapturesSorted = sortBy captureHeuristics . pawnCaptures
 
 
 ------------------------------------------------------------------------------
@@ -360,7 +363,7 @@ pawnEnPassants b = do
 ------------------------------------------------------------------------------
 -- pieces that can give discovered checks
 discoverer :: Board -> BitBoard
-discoverer b = discovererOrPinned b (b^.opponent) (b^.next)
+discoverer b = discovererOrPinned b (b^.B.opponent) (b^.next)
 
 
 ------------------------------------------------------------------------------
@@ -377,18 +380,18 @@ discovererOrPinned
   -> BitBoard
 discovererOrPinned b c1 c2 = mconcat $ do
   pt <- [ Rook, Bishop ]
-  let kingPos = kingByColour b c1
+  let kingPos = kingByColour c1 b
       -- King casting rays ..
       kingRay = pseudoAttackBB pt kingPos -- magic pt kingPos (occupancy b)
       casters = kingRay .&.
-                (piecesOf b (opponent' c1) pt
-                 <> piecesOf b (opponent' c1) Queen)
+                (piecesOf b (T.opponent c1) pt
+                 <> piecesOf b (T.opponent c1) Queen)
   caster <- toList casters
   let inBetween = lineBB kingPos caster
                   `xor` fromSquare kingPos
                   `xor` fromSquare caster
   guard (popCount (inBetween .&. occupancy b) < 2)
-  return $ inBetween .&. b^.piecesByColour c2
+  return $ inBetween .&. piecesByColour b c2
 
 
 ------------------------------------------------------------------------------
@@ -398,7 +401,7 @@ captures b = normMoveGen b (opponentsPieces b)
 
 ------------------------------------------------------------------------------
 capturesSorted :: Board -> [ Move ]
-capturesSorted = (sortBy captureHeuristics) . captures
+capturesSorted = sortBy captureHeuristics . captures
 
 
 ------------------------------------------------------------------------------
@@ -408,7 +411,7 @@ quietMoves b = normMoveGen b (vacated b)
 
 ------------------------------------------------------------------------------
 quietMovesSorted :: Board -> [ Move ]
-quietMovesSorted = (sortBy moveValHeuristics) . quietMoves
+quietMovesSorted = sortBy moveValHeuristics . quietMoves
 
 
 ------------------------------------------------------------------------------
@@ -425,7 +428,7 @@ pawnQuietMoves b = do
 
 ------------------------------------------------------------------------------
 pawnQuietMovesSorted :: Board -> [ Move ]
-pawnQuietMovesSorted = (sortBy moveValHeuristics) . pawnQuietMoves
+pawnQuietMovesSorted = sortBy moveValHeuristics . pawnQuietMoves
 
 
 ------------------------------------------------------------------------------
@@ -488,7 +491,7 @@ pawnCaptureSquares b = do
   target  <- toList $ opponentsPieces b .&.
              ((myPawns .&. cFiles capture (b^.next))
               `shift` direction (b^.next) capture)
-  return (offset target (direction (b^.opponent) capture), target, Nothing)
+  return (offset target (direction (b^.B.opponent) capture), target, Nothing)
 
 
 ------------------------------------------------------------------------------
@@ -542,7 +545,7 @@ castleMoves b chk = do
       checkSqrs = toList $ checkCastleBB (b^.next) side
   guard $ chk /= (fromSquare rt .&. kRays == mempty)
   guard $ (vacancyCastleBB (b^.next) side .&. occupancy b) == mempty
-  guard $ not $ F.any (isAttacked b (b^.opponent)) checkSqrs
+  guard $ not $ F.any (isAttacked b (b^.B.opponent)) checkSqrs
   return
     $ (castle .~ Just side)
     $ defaultMove f t King $ b^.next

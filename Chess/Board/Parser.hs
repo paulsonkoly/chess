@@ -42,9 +42,10 @@ boardParser = liftM (\b -> (hash .~ calcHash b) b) $ do
         
         parserPiece = do
           p <- oneOf "rnbqkpRNBQKP"
-          let sbb = fromSquare $ toEnum sq
-          go (piecesByColour (charToColour p)
-              <>~ sbb $ (piecesByType (charToPiece p) <>~ sbb) b) $ sq + 1
+          let modif = case charToPiece p of
+                       King -> Left (toEnum sq)
+                       _    -> Right $ fromSquare $ toEnum sq
+          go (flipPiece (charToColour p) (charToPiece p) modif b) $ sq + 1
             
         parserGap   =
           liftM digitToInt (oneOf "12345678") >>= \g -> go b $ sq + g

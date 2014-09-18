@@ -58,7 +58,7 @@ main = do
         putStrLn $ "score : " ++ show tsc
         modifyIORef scr (+tsc)
         writeFile (fileName ++ ".html") $
-          renderHtml $ Main.report fileName $ eres
+          renderHtml $ Main.report fileName eres
   tsc <- readIORef scr
   putStrLn $ "Total score : " ++ show tsc
 

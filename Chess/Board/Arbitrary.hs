@@ -11,7 +11,7 @@ import qualified Test.QuickCheck as Q
 import           Chess.Board.Attacks
 import           Chess.Board.Board
 import           Data.BitBoard
-import           Data.ChessTypes
+import           Data.ChessTypes hiding (opponent)
 import           Data.Square
 
 ------------------------------------------------------------------------------
@@ -33,16 +33,18 @@ instance Q.Arbitrary Board where
     wpcs <- liftM (.&. occ) arbitrary
     let bpcs = occ .&. complement wpcs
     n <- Q.elements [ Black, White ]
-    let b =   (whitePieces .~ wpcs .|. fromSquare wkPos)
-            $ (blackPieces .~ bpcs .|. fromSquare bkPos)
-            $ (rooks       .~ rs)
-            $ (knights     .~ ns)
-            $ (bishops     .~ bs)
-            $ (queens      .~ qs)
-            $ (kings       .~ (wkPos , bkPos))
-            $ (pawns       .~ ps)
-            $ (next        .~ n)
-            emptyBoard
+    let b = flipPiece White King (Left wkPos)
+            $ flipPiece Black King (Left bkPos)
+            $ foldr1 (.) [ flipPiece c pt (Right bb)
+                         | (c, cbb) <- [ (Black, bpcs), (White, wpcs) ]
+                         , (pt, bb) <- [ (Rook, rs .&. cbb)
+                                       , (Knight, ns .&. cbb)
+                                       , (Bishop, bs .&. cbb)
+                                       , (Queen, qs .&. cbb)
+                                       , (Pawn, ps .&. cbb)
+                                       ]
+                         ]
+            $ (next .~ n) emptyBoard
 
     return $ (hash .~ calcHash b) b
 
@@ -50,15 +52,7 @@ instance Q.Arbitrary Board where
 
   -- remove 1 piece (except the king)
   shrink b = filter kingAttacksOk
-             $ map ((\bb ->   (whitePieces %~ (.&. bb))
-                            $ (blackPieces %~ (.&. bb))
-                            $ (rooks       %~ (.&. bb))
-                            $ (knights     %~ (.&. bb))
-                            $ (bishops     %~ (.&. bb))
-                            $ (queens      %~ (.&. bb))
-                            $ (pawns       %~ (.&. bb)) b)
-                    . complement . fromSquare)
-             $ filter goodSquare squares
+             $ map (`removePiece` b) $ filter goodSquare squares
     where goodSquare sq = let p = pieceAt b sq in isJust p && p /= Just King
 
 

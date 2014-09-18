@@ -36,6 +36,7 @@ import           Text.ParserCombinators.Parsec
 import           Chess.Board
 import           Data.BitBoard
 import           Data.ChessTypes
+import qualified Data.ChessTypes as T (opponent)
 import           Data.Square
 
 
@@ -73,7 +74,7 @@ moveHash m =
 ------------------------------------------------------------------------------
 -- | Instance to create Sets with moves on a given Board.
 instance Ord Move where
-  compare a b = (moveHash a) `compare` (moveHash b)
+  compare a b = moveHash a `compare` moveHash b
 
 
 ------------------------------------------------------------------------------
@@ -156,7 +157,7 @@ data Disambiguity = DSquare Square | DFile File Square | DRank Rank Square
 ------------------------------------------------------------------------------
 -- The disambiguity and the target square parser in san
 disambiguityParser :: Parser Disambiguity
-disambiguityParser = drParser <|> (try dfParser) <|> dsParser
+disambiguityParser = drParser <|> try dfParser <|> dsParser
   where drParser = parser (\(Just r) sq -> DRank r sq) $ Just rankParser          
         dfParser = parser (\(Just f) sq -> DFile f sq) $ Just fileParser
         dsParser = parser (\Nothing sq  -> DSquare sq) Nothing
@@ -185,13 +186,13 @@ disambiguity b pt ds =
 ------------------------------------------------------------------------------
 whereFromBB :: PieceType -> Colour -> Square -> Board -> BitBoard
 whereFromBB Pawn c sq b   =
-  let prevRank     = fromSquare $ offset sq (direction (opponent' c) 8)
-      prevPrevRank = fromSquare $ offset sq (direction (opponent' c) 16)
+  let prevRank     = fromSquare $ offset sq (direction (T.opponent c) 8)
+      prevPrevRank = fromSquare $ offset sq (direction (T.opponent c) 16)
       dbl = if vacated b .&. prevRank /= mempty
                && piecesOf b (b^.next) Pawn .&. prevPrevRank /= mempty
             then prevPrevRank
             else prevRank
-  in dbl .|. pawnAttackBB sq (opponent' c)
+  in dbl .|. pawnAttackBB sq (T.opponent c)
 whereFromBB King _ sq _   = kingAttackBB sq
 whereFromBB Knight _ sq _ = knightAttackBB sq
 whereFromBB pt _ sq _     = pseudoAttackBB pt sq

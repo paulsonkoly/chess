@@ -10,12 +10,11 @@ module Chess.Board.Attacks
 
 import Data.Monoid
 
-import Control.Lens
-
 import Chess.Board.Board
 import Chess.Magic
 import Data.BitBoard
 import Data.ChessTypes
+import qualified Data.ChessTypes as T (opponent)
 import Data.Square
 
 
@@ -31,16 +30,16 @@ isAttacked b c s = isAttackedWithOccupancy b (occupancy b) c s
 -- | is the specified player in check?
 inCheck :: Board -> Colour -> Bool
 inCheck b c = let kP = head $ toList $ piecesOf b c King
-              in  isAttacked b (opponent' c) kP
+              in  isAttacked b (T.opponent c) kP
 
 
 ------------------------------------------------------------------------------
 -- | is the specified player in check with the friendly pieces removed?
 inCheckWithNoFriendly :: Board -> Colour -> Bool
 inCheckWithNoFriendly b c =
-  let occ = (b^.piecesByColour (opponent' c))
+  let occ = piecesByColour b (T.opponent c)
       kP  = head $ toList $ piecesOf b c King 
-  in isAttackedWithOccupancy b occ (opponent' c) kP
+  in isAttackedWithOccupancy b occ (T.opponent c) kP
 
 
 ------------------------------------------------------------------------------
@@ -85,4 +84,4 @@ attackBitBoard Knight pos _ _   =
 attackBitBoard King pos _ _     =
   {-# SCC attackBitBoardKing   #-} kingAttackBB pos
 attackBitBoard Pawn pos _ c     =
-  {-# SCC attackBitBoardPawn   #-} pawnAttackBB pos (opponent' c)
+  {-# SCC attackBitBoardPawn   #-} pawnAttackBB pos (T.opponent c)

@@ -24,7 +24,7 @@ toFront a as = let mix = elemIndex a as
 -- | the last index satisfying the predicate. If no element satisfies the 
 -- predicate then Nothing.
 findLastIndex :: (a -> Bool) -> [a] -> Maybe Int
-findLastIndex p ls = loop Nothing 0 ls
+findLastIndex p = loop Nothing 0
   where
     loop x _ [] = x
     loop r n (x:xs) | p x       = loop (Just n) (n + 1) xs

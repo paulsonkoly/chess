@@ -8,7 +8,7 @@ module Chess.Move
    )
    where
 
-import Data.Maybe (catMaybes)
+import Data.Maybe (mapMaybe)
 
 import Chess.Board
 import qualified Chess.Board as B (calcHash)
@@ -53,4 +53,4 @@ prop_MoveLegalityCheck b = let bs = [ makeMove m b | m <- legalMoves b ]
 legalMoves :: Board -> [ Move ]
 legalMoves b =
   let leg = mkLegality b
-  in catMaybes $ map (legalCheck leg) $ moves b
+  in  mapMaybe (legalCheck leg) $ moves b

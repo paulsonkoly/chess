@@ -1,40 +1,24 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE Rank2Types      #-}
--- | "Data.BitBoard" representation of the current state of the game
---  
--- In search it's also used for storing /nodes/. It should support fast move
--- and unmove operations. To query for instance the white pawns one can do
---
--- > (b^.whitePieces) .&. (b^.pawns)
---
+{-# LANGUAGE Rank2Types #-}
+-- | Representation of the current state of the game
 module Chess.Board.Board
    ( Board
    -- * Constructors
    , emptyBoard
-   -- * Utilities
-   , opponent'
-   , prettyPrint
-   , fen
-   -- * Board lenses
-   , whitePieces
-   , blackPieces
-   , rooks
-   , knights
-   , bishops
-   , queens
-   , kings
-   , pawns
+   -- * Data manipulation
+   , flipPiece
+   , removePiece
+   -- ** Lenses
    , next
-   , opponent
+   , Chess.Board.Board.opponent
    , enPassant
    , whiteCastleRights
    , blackCastleRights
    , hash
-   -- * Lenses by type
-   , piecesByColour
-   , piecesByType
-   , castleRightsByColour
+   , castleRightsByColour     
    -- * Queries
+   , pawns
+   , piecesByColour     
    , pieceAt
    , pieceColourAt
    , occupancy
@@ -42,12 +26,16 @@ module Chess.Board.Board
    , myPieces
    , opponentsPieces
    , piecesOf
+   , kingByColour
    , myPiecesOf
    , opponentsPiecesOf
    , numberOf
-   , kingByColour
-   -- * Others
+   -- * Utilities
+   , prettyPrint
+   , fen
    , calcHash
+   -- * QuickCheck
+   , prop_Board
    )
    where
 
@@ -62,18 +50,20 @@ import           Control.Lens
 import           Chess.Zobrist
 import           Data.BitBoard hiding (prettyPrint)
 import           Data.ChessTypes
+import qualified Data.ChessTypes as T (opponent)
 import           Data.Square
 
 ------------------------------------------------------------------------------
 data Board = Board
    { _whitePieces       :: ! BitBoard
    , _blackPieces       :: ! BitBoard
-   , _rooks             :: ! BitBoard
-   , _knights           :: ! BitBoard
-   , _bishops           :: ! BitBoard
-   , _queens            :: ! BitBoard
-   , _kings             :: ! (Square, Square)
-   , _pawns             :: ! BitBoard
+   , _rooks'            :: ! BitBoard
+   , _knights'          :: ! BitBoard
+   , _bishops'          :: ! BitBoard
+   , _queens'           :: ! BitBoard
+   , _whiteKingPosition :: ! Square
+   , _blackKingPosition :: ! Square
+   , _pawns'            :: ! BitBoard
    , _next              :: ! Colour
    , _enPassant         :: ! (Maybe Square)
    , _whiteCastleRights :: ! CastlingRights
@@ -86,53 +76,49 @@ data Board = Board
 -- | A board with no pieces
 emptyBoard :: Board
 emptyBoard = Board mempty mempty mempty mempty mempty mempty
-             ( toSquare aFile firstRank
-             , toSquare hFile eighthRank
-             )
+             (toSquare aFile firstRank) (toSquare hFile eighthRank)
              mempty White Nothing mempty mempty 0
 
 
 $(makeLenses ''Board)
 
+                           -----------------------
+                           -- Data manipulation --
+                           -----------------------
 
 ------------------------------------------------------------------------------
--- | black for white, white for black
-opponent' :: Colour -> Colour
-opponent' White = Black
-opponent' Black = White
-{-# INLINE opponent' #-}
+-- | For Kings a Left Square should be given and this simply sets the King
+-- position. For other piece types a Right BitBoard flips the presence of the
+-- specified piece type using XOR logic.
+flipPiece :: Colour -> PieceType -> Either Square BitBoard -> Board -> Board
+flipPiece c King (Left sq) = kingByColour' c .~ sq
+flipPiece c pt (Right bb)  =
+  (piecesByColour' c %~ (`xor` bb)) . (piecesByType' pt %~ (`xor` bb))
+flipPiece _ _ _            = error "flipPiece : unexpected arguments"
+{-# INLINE flipPiece #-}
 
+
+------------------------------------------------------------------------------
+-- | Removes a piece (except the king) from a square
+removePiece :: Square -> Board -> Board
+removePiece s =
+  let comp = complement $ fromSquare s
+  in foldr1 (.) [ piecesByColour' c %~ (.&. comp)
+                | c <- [ Black, White ]
+                ]
+     . foldr1 (.) [ piecesByType' pt %~ (.&. comp)
+                  | pt <-[ Pawn, Rook, Knight, Bishop, Queen]
+                  ]
+
+
+                            ---------------------
+                            -- Exported lenses --
+                            ---------------------
 
 ------------------------------------------------------------------------------
 -- | opposite colour of the next lens
 opponent :: Lens' Board Colour
-opponent = lens (opponent' . (^.next)) (\s b -> (next.~ opponent' b) s)
-
-
-------------------------------------------------------------------------------
--- | the BitBoard Lens corresponding to the given `colour`
-piecesByColour 
-   :: Colour               -- ^ Black / White
-   -> Lens' Board BitBoard -- ^ Lens
-piecesByColour Black = blackPieces
-piecesByColour White = whitePieces
-{-# INLINE piecesByColour #-}
-
-
-------------------------------------------------------------------------------
--- | the BitBoard Lens corresponding to the given PieceType
-piecesByType
-   :: PieceType            -- ^ Rook / Pawn etc.
-   -> Lens' Board BitBoard -- ^ Lens
-piecesByType Pawn   = pawns
-piecesByType Rook   = rooks
-piecesByType Knight = knights
-piecesByType Bishop = bishops
-piecesByType Queen  = queens
-piecesByType King   =
-  lens (\b -> fromSquare (b^.kings^._1) .|. fromSquare (b^.kings^._2))
-       (\b s -> let x:y:_ = toList s in (kings .~ (x, y)) b)
-{-# INLINE piecesByType #-}
+opponent = lens (T.opponent . (^.next)) (\s b -> (next.~ T.opponent b) s)
 
 
 ------------------------------------------------------------------------------
@@ -144,20 +130,57 @@ castleRightsByColour White = whiteCastleRights
 castleRightsByColour Black = blackCastleRights
 {-# INLINE castleRightsByColour #-}
 
+                                -------------
+                                -- Queries --
+                                -------------
+
+------------------------------------------------------------------------------
+-- | BitBoard with all the Pawns
+pawns :: Board -> BitBoard
+pawns = view pawns'
+
+
+------------------------------------------------------------------------------
+-- the BitBoard Lens of the given `colour` except the King
+piecesByColour' :: Colour -> Lens' Board BitBoard
+piecesByColour' Black = blackPieces
+piecesByColour' White = whitePieces
+{-# INLINE piecesByColour' #-}
+
+
+------------------------------------------------------------------------------
+-- the BitBoard Lens of the given type except the King
+piecesByType' :: PieceType -> Lens' Board BitBoard
+piecesByType' Rook   = rooks'
+piecesByType' Knight = knights'
+piecesByType' Bishop = bishops'
+piecesByType' Queen  = queens'
+piecesByType' Pawn   = pawns'
+piecesByType' King   = undefined
+{-# INLINE piecesByType' #-}
+
+
+------------------------------------------------------------------------------
+-- | the occupancy bitboard for a given colour
+piecesByColour :: Board -> Colour -> BitBoard
+piecesByColour b c =
+  b^.piecesByColour' c .|. fromSquare (b^.kingByColour' c)
+
+
 
 ------------------------------------------------------------------------------
 -- | The piece type at the given position
 pieceAt :: Board -> Square -> Maybe PieceType
 pieceAt b pos
-  | b^.kings^._1 == pos         = Just King
-  | b^.kings^._2 == pos         = Just King
+  | b^.whiteKingPosition == pos = Just King
+  | b^.blackKingPosition == pos = Just King
   | occupancy b .&. p == mempty = Nothing
-  | b^.pawns    .&. p /= mempty = Just Pawn
-  | b^.knights  .&. p /= mempty = Just Knight
-  | b^.bishops  .&. p /= mempty = Just Bishop
-  | b^.rooks    .&. p /= mempty = Just Rook
-  | b^.queens   .&. p /= mempty = Just Queen
-  | otherwise                     = error "inconsistent board"
+  | b^.pawns'   .&. p /= mempty = Just Pawn
+  | b^.knights' .&. p /= mempty = Just Knight
+  | b^.bishops' .&. p /= mempty = Just Bishop
+  | b^.rooks'   .&. p /= mempty = Just Rook
+  | b^.queens'  .&. p /= mempty = Just Queen
+  | otherwise                   = error "inconsistent board"
   where p = fromSquare pos
 
 
@@ -165,6 +188,8 @@ pieceAt b pos
 -- | The piece colour at a given position
 pieceColourAt :: Board -> Square -> Maybe Colour
 pieceColourAt b pos
+  | b^.whiteKingPosition == pos    = Just White
+  | b^.blackKingPosition == pos    = Just Black
   | b^.whitePieces .&. p /= mempty = Just White
   | b^.blackPieces .&. p /= mempty = Just Black
   | otherwise                      = Nothing
@@ -174,7 +199,10 @@ pieceColourAt b pos
 ------------------------------------------------------------------------------
 -- | the occupancy \Data.BitBoard\
 occupancy :: Board -> BitBoard
-occupancy b = b^.whitePieces .|. b^.blackPieces
+occupancy b = b^.whitePieces
+              .|. b^.blackPieces
+              .|. fromSquare (b^.whiteKingPosition)
+              .|. fromSquare (b^.blackKingPosition)
 {-# INLINE occupancy #-}
 
 
@@ -188,19 +216,24 @@ vacated = complement . occupancy
 ------------------------------------------------------------------------------
 -- | my pieces
 myPieces :: Board -> BitBoard
-myPieces b = b^.piecesByColour (b^.next)
+myPieces b = piecesByColour b (b^.next)
 
 
 ------------------------------------------------------------------------------
 -- | opponents pieces
 opponentsPieces :: Board -> BitBoard
-opponentsPieces b = b^.piecesByColour (b^.opponent)
+opponentsPieces b = piecesByColour b (b^.Chess.Board.Board.opponent)
 
 
 ------------------------------------------------------------------------------
 -- | pieces of a player of a specific type
 piecesOf :: Board -> Colour -> PieceType -> BitBoard
-piecesOf b colour pt = (b^.piecesByType pt) .&. (b^.piecesByColour colour)
+piecesOf b colour Pawn   = b^.pawns'  .&. piecesByColour b colour
+piecesOf b colour Rook   = b^.rooks'  .&. piecesByColour b colour
+piecesOf b colour Knight = b^.knights'.&. piecesByColour b colour
+piecesOf b colour Bishop = b^.bishops'.&. piecesByColour b colour
+piecesOf b colour Queen  = b^.queens' .&. piecesByColour b colour
+piecesOf b colour King   = fromSquare $ b^.kingByColour' colour
 {-# INLINE piecesOf #-}
 
 
@@ -211,18 +244,25 @@ myPiecesOf b = piecesOf b (b^.next)
 
 ------------------------------------------------------------------------------
 opponentsPiecesOf :: Board -> PieceType -> BitBoard
-opponentsPiecesOf b = piecesOf b (b^.opponent)
+opponentsPiecesOf b = piecesOf b (b^.Chess.Board.Board.opponent)
+
+
+------------------------------------------------------------------------------
+kingByColour' :: Colour -> Lens' Board Square
+kingByColour' White = whiteKingPosition
+kingByColour' Black = blackKingPosition
+{-# INLINE kingByColour' #-}
 
 
 ------------------------------------------------------------------------------
 -- | the king's square for a given colour
-kingByColour :: Board -> Colour -> Square
-kingByColour b c =
-  let (x, y) = b^.kings
-  in if ((fromSquare x) .&. (b^.(piecesByColour c))) /= mempty
-     then x
-     else y
+kingByColour :: Colour -> Board -> Square
+kingByColour = view . kingByColour'
+{-# INLINE kingByColour #-}
 
+                               ---------------
+                               -- Utilities --
+                               ---------------
 
 ------------------------------------------------------------------------------
 numberOf :: Board -> Colour -> PieceType -> Int
@@ -318,3 +358,15 @@ calcHash b =
                  (b^.whiteCastleRights)
                  (b^.blackCastleRights))
   `xor` zobrist (ZobristEnPassant $ b^.enPassant)
+
+
+------------------------------------------------------------------------------
+-- | Property that asserts that the pieces are consistent. The union of black
+-- and white pieces is the same as the union of all piece types.
+prop_Board :: Board -> Bool
+prop_Board b =
+  let byColour = b^.whitePieces .|. b^.blackPieces
+      byType   = mconcat [ b^.(piecesByType' t)
+                         | t <- [ Queen, Rook, Knight, Bishop, Pawn]
+                         ]
+  in byColour == byType

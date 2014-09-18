@@ -11,8 +11,10 @@ import           Data.Monoid
 import           Data.BitBoard
 import           Data.Square
 import           Data.ChessTypes
+import qualified Data.ChessTypes as T (opponent)
 import           Chess.Move.Move
 import           Chess.Board hiding (calcHash)
+import qualified Chess.Board as B (opponent)
 import           Chess.Zobrist
 
 
@@ -23,8 +25,8 @@ makeMove m b =
   let mcsTrs  =
         castleRightsByColour (b^.next) %~ intersect (castleRightsMine m)
       opcsTrs =
-        castleRightsByColour (b^.opponent) %~ intersect (castleRightsOpp m)
-      nxtTrs  = next %~ opponent'
+        castleRightsByColour (b^.B.opponent) %~ intersect (castleRightsOpp m)
+      nxtTrs  = next %~ T.opponent
       enpTrs  = enPassant .~ if isDoubleAdvance m
                              then Just (m^.to)
                              else Nothing
@@ -38,15 +40,23 @@ makeMoveSimplified :: Move -> Board -> Board
 makeMoveSimplified m b =
   let (f, t) = (fromBB m, toBB m)
       ft     = f `xor` t
-      mvsTrs = maybe id
-               (\c -> putPiece (rookCastleBB (b^.next) c) (b^.next) Rook)
-               (m^.castle)
-               . maybe id
-               (\e -> putPiece (fromSquare e) (b^.opponent) Pawn)
-               (m^.enPassantTarget)
-               . maybe id (promote t) (m^.promotion)
-               . maybe id (putPiece t $ b^.opponent) (m^.capturedPiece)
-               . putPiece ft (b^.next) (m^.piece)
+      modif  = case m^.piece of
+        King -> flipPiece (b^.next) King (Left $ m^.to)
+        pt   -> flipPiece (b^.next) pt (Right ft)
+        
+      mvsTrs = optional (m^.castle)
+               (flipPiece (b^.next) Rook . Right . rookCastleBB (b^.next))
+
+               . optional (m^.enPassantTarget)
+               (flipPiece (b^.B.opponent) Pawn . Right . fromSquare)
+               
+               . optional (m^.promotion)
+               (promote (m^.colour) t)
+               
+               . optional (m^.capturedPiece)
+               (\pt -> flipPiece (b^.B.opponent) pt (Right t))
+               
+               . modif
   in mvsTrs b
 
 
@@ -63,10 +73,9 @@ toBB = fromSquare . (^.to)
 
 
 ------------------------------------------------------------------------------
-putPiece :: BitBoard -> Colour -> PieceType -> Board -> Board
-putPiece bb c pt = (piecesByColour c %~ xor bb) . (piecesByType pt %~ xor bb)
-{-# INLINE putPiece #-}
-
+optional :: Maybe a -> (a -> a1 -> a1) -> a1 -> a1
+optional = flip (maybe id)
+{-# INLINE optional #-}
 
 ------------------------------------------------------------------------------
 zPutPiece :: Square -> Colour -> PieceType -> Word64
@@ -75,8 +84,8 @@ zPutPiece x y z = zobrist $ ZobristPiece x y z
 
 
 ------------------------------------------------------------------------------
-promote :: BitBoard -> PieceType -> Board -> Board
-promote bb pt = (pawns %~ xor bb) . (piecesByType pt %~ xor bb)
+promote :: Colour -> BitBoard -> PieceType -> Board -> Board
+promote c bb pt = flipPiece c pt (Right bb) . flipPiece c Pawn (Right bb)
 {-# INLINE promote #-}
 
 
@@ -162,7 +171,7 @@ calcHash b m =
     flipSideZ = zobrist (ZobristSide White) `xor` zobrist (ZobristSide Black)
 
     capturedZ = maybe 0
-                (zobrist . ZobristPiece (m^.to) (opponent' $ m^.colour))
+                (zobrist . ZobristPiece (m^.to) (T.opponent $ m^.colour))
                 (m^.capturedPiece)
 
     castleZ   = zobrist (ZobristCastlingRights
@@ -193,7 +202,7 @@ calcHash b m =
                                                      else Nothing)
 
     enPassantRMZ = maybe 0
-                   (\t -> zPutPiece t (opponent' (b^.next)) Pawn)
+                   (\t -> zPutPiece t (T.opponent (b^.next)) Pawn)
                    (m^.enPassantTarget)
 
     promotionZ   = maybe 0

@@ -199,10 +199,9 @@ withHistory ml d f =
   then do
     ml' <- liftM (H.heuristics ml) (use hist)
     mlr <- f ml'
-    forM_ mlr $ \lr -> do
-      case lr of
-       Cacheable _ (TPC.Lower m) -> hist %= H.insert d m ml'
-       _                         -> return ()
+    forM_ mlr $ \lr -> case lr of
+      Cacheable _ (TPC.Lower m) -> hist %= H.insert d m ml'
+      _                         -> return ()
     return mlr
   else f ml
 {-# INLINE withHistory #-}

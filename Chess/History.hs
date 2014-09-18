@@ -53,11 +53,10 @@ insert d m ml (History v) =
       ml' = filter (isJust . capturedPiece') $ takeWhile (/= m') ml
   in History $ v `V.unsafeUpd` (updater _2 m' ++ concatMap (updater _1) ml')
   where
-    updater l m' = let idx = vidx $ m'
-                       p   = v `V.unsafeIndex` idx
-                   in if isJust (m^.capturedPiece)
-                      then [ (idx, p & l +~ (1 `shiftL` d)) ]
-                      else []
+    updater l m' =
+      let idx = vidx m'
+          p   = v `V.unsafeIndex` idx
+      in [ (idx, p & l +~ (1 `shiftL` d)) | isJust (m^.capturedPiece)]
                           
 
 ------------------------------------------------------------------------------
@@ -70,7 +69,7 @@ heuristics ml (History v) =
   let midx         = findLastIndex (isJust . capturedPiece') ml
       value (a, b) = a % b
       sorting      =
-        sortBy (comparing (Down . value . (V.unsafeIndex v) . vidx))
+        sortBy (comparing (Down . value . V.unsafeIndex v . vidx))
   in case midx of
       Just idx ->
         let (pref, suff) = splitAt (idx + 1) ml

@@ -9,6 +9,7 @@ module Data.ChessTypes
        , toCastleList
        , fromCastle
        , intersect
+       , opponent
        -- * Utilities
        , pieceValue
        , charToPiece
@@ -23,6 +24,11 @@ newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Read, Eq, B
 
 data Colour = White | Black deriving (Show, Read, Eq, Enum, Bounded)
 data PieceType = Queen | Rook | Bishop | Knight | King | Pawn deriving (Show, Eq, Enum, Bounded)
+
+
+opponent :: Colour -> Colour
+opponent White = Black
+opponent Black = White
 
 
 -- I have tried the tuple-gen package, but that doesn't define the right instance of
