@@ -16,7 +16,7 @@ import Chess.Board
 legalMoves :: Board -> [ Move ]
 legalMoves b = 
   let leg  = mkLegality b
-  in mapMaybe (legalCheck leg) $ nub $ moves b
+  in mapMaybe (snd . legalCheck leg) $ nub $ moves b
 
 
 ------------------------------------------------------------------------------

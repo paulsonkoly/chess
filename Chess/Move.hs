@@ -53,4 +53,4 @@ prop_MoveLegalityCheck b = let bs = [ makeMove m b | m <- legalMoves b ]
 legalMoves :: Board -> [ Move ]
 legalMoves b =
   let leg = mkLegality b
-  in  mapMaybe (legalCheck leg) $ moves b
+  in  mapMaybe (snd . legalCheck leg) $ moves b

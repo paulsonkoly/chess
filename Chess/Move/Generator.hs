@@ -21,6 +21,7 @@ import           Data.List
 import           Data.Maybe
 import           Data.Monoid
 import           Data.Ord
+import qualified Data.Set as S
 
 import           Control.Lens hiding (to, from)
 
@@ -47,6 +48,7 @@ data Legality = Legality
                 { _board     :: Board
                 , _inCheck'  :: Bool
                 , _pins      :: BitBoard
+                , _nubs      :: S.Set PseudoLegalMove
                 }
 
 
@@ -58,18 +60,21 @@ $(makeLenses ''Legality)
 mkLegality :: Board -> Legality
 mkLegality b =
   let checkers = attackedFromBB b (occupancy b) (b^.B.opponent) (myKingPos b)
-  in Legality b (checkers /= mempty) (pinned b) -- S.empty
+  in Legality b (checkers /= mempty) (pinned b) S.empty
 
 
 ------------------------------------------------------------------------------
 -- | if the move is legal then Just move and the new Legality
--- legalCheck :: Legality -> PseudoLegalMove -> (Legality, Maybe Move)
-legalCheck :: Legality -> PseudoLegalMove -> Maybe Move
-legalCheck l (PseudoLegalMove m) =
-  let f = if l^.inCheck'
-          then legal (l^.board)
-          else ok (l^.board) (l^.pins)
-  in if f m then Just m else Nothing
+legalCheck :: Legality -> PseudoLegalMove -> (Legality, Maybe Move)
+legalCheck l psm@(PseudoLegalMove m) =
+  if psm `S.member` (l^.nubs)
+  then (l, Nothing)
+  else
+    let f  = if l^.inCheck'
+             then legal (l^.board)
+             else ok (l^.board) (l^.pins)
+        nl = (nubs %~ (S.insert psm)) l
+    in (nl, if f m then Just m else Nothing)
 
 
 ------------------------------------------------------------------------------

@@ -275,8 +275,8 @@ iterateMoves ml d alpha beta rep ac = do
 
   where go _ _ prev [] = return (Just prev)
         go leg n prev (psm:ms) = abortable $ do            
-            let prevVal = score prev
-                mm      = legalCheck leg psm
+            let prevVal    = score prev
+                (leg', mm) = legalCheck leg psm
             case mm of
              Just m -> do
                mnxt <- ac (n == 0) m prevVal beta
@@ -292,14 +292,14 @@ iterateMoves ml d alpha beta rep ac = do
                                     else Cacheable (nxt^.eval)
                                          (TPC.Exact (head $ nxt^.SR.moves)
                                           (tail $ nxt^.SR.moves))
-                         in when rep (info d nxt) >> go leg (n+1) this ms
+                         in when rep (info d nxt) >> go leg' (n+1) this ms
 
                      | otherwise -> do
                          when rep $ report $ "currmove " ++ renderShortMove m
                            ++ " currmovenumber " ++ show n
-                         go leg (n+1) prev ms)
+                         go leg' (n+1) prev ms)
                  mnxt
-             Nothing -> go leg (n+1) prev ms
+             Nothing -> go leg' n prev ms
 
 -- percentage :: Int -> Int -> Int
 -- percentage a b = if a == 0 then 0 else 100 * b `div` a
