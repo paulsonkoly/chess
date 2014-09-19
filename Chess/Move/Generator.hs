@@ -523,7 +523,7 @@ pawnEnPassantSquares b = case b^.enPassant of
   Just square -> do
     pawn <- toList $ (fromSquare (offset square 1)
                       .|. fromSquare (offset square (-1)))
-            .&. neighbourFilesBB (file square)
+            .&. largeNeighbourFilesBB (file square)
             .&. myPiecesOf b Pawn
     return (pawn, offset square $ direction (b^.next) 8, Just square)
   Nothing -> []

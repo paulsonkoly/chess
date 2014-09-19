@@ -2,6 +2,7 @@
 -- | Various BitBoard values
 module Data.BitBoard.Values
        ( neighbourFilesBB
+       , largeNeighbourFilesBB
        , neighbourRanksBB
        , knightAttackBB
        , kingAttackBB
@@ -42,6 +43,11 @@ neighbourRanksBB = neighbourRanksBB''
 $(toVecLookup "neighbourFilesBB''" neighbourFilesBB')
 neighbourFilesBB :: File -> BitBoard
 neighbourFilesBB = neighbourFilesBB''
+
+
+$(toVecLookup "largeNeighbourFilesBB''" largeNeighbourFilesBB')
+largeNeighbourFilesBB :: File -> BitBoard
+largeNeighbourFilesBB = largeNeighbourFilesBB''
 
 
 lightSquares :: BitBoard

@@ -7,6 +7,8 @@ module Chess.Evaluation
 ------------------------------------------------------------------------------
 import           Control.Lens ((^.))
 
+import           Control.Monad (guard)
+
 import           Chess.Board
 import           Chess.Move
 import           Data.BitBoard
@@ -14,6 +16,7 @@ import           Data.ChessTypes
 import qualified Data.ChessTypes as T (opponent)
 import           Data.Monoid
 import           Data.Square
+
 
 
 ------------------------------------------------------------------------------
@@ -28,6 +31,7 @@ evaluate b =
            | f <- [ evaluateMaterial
                   , evaluateRookPosition
                   , evaluateKingSafety
+                  , evaluateOutpost
                   , evaluateCastle
                   , evaluateBishopPosition
                   , evaluateKnightPosition
@@ -53,7 +57,8 @@ evaluateKingSafety b c =
   let kingP            = kingByColour c b
       opp              = T.opponent c
       (kingF, kingR)   = (file kingP, rank kingP)
-      quadrant         = neighbourFilesBB kingF .&. neighbourRanksBB kingR
+      quadrant         =
+        largeNeighbourFilesBB kingF .&. neighbourRanksBB kingR
       attackingKnights = popCount $ quadrant .&. piecesOf b opp Knight
       rayAttacks       = popCount $ mconcat
                          [ piecesOf b opp pt .&. pseudoAttackBB pt kingP
@@ -162,6 +167,29 @@ evaluatePawnPosition b c =
   in if endGame b
      then 5 * passed - 2 * double
      else 2 * popCount centralized  + popCount wkCentralized
+
+
+------------------------------------------------------------------------------
+-- Bishop or Knight outpost on the central Squares / large central Squares
+evaluateOutpost :: Board -> Colour -> Int
+evaluateOutpost b c =
+  let minorPieces  = mconcat [ piecesOf b c pt | pt <- [ Bishop, Knight ]]
+      central      = centralSquares .&. minorPieces
+      myFifth      = case c of
+                      White -> fifthRank
+                      Black -> fourthRank
+      largeCentral = largeCentralSquares
+                     .&. (complement centralSquares)
+                     .&. aheadBB myFifth c
+                     .&. minorPieces
+      evalPosts bb = sum $ do
+        sq <- toList bb
+        let (f, r) = (file sq, rank sq)
+            ahead  = aheadBB r c .&. complement (rankBB r)
+            fs     = neighbourFilesBB f .&. complement (fileBB f)
+        guard $ (piecesOf b (T.opponent c) Pawn) .&. ahead .&. fs == mempty
+        return 3
+  in 2 * evalPosts central + evalPosts largeCentral
 
 
 ------------------------------------------------------------------------------

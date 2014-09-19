@@ -3,6 +3,7 @@ module Data.BitBoard.Values.Private
        , fileBB
        , neighbourRanksBB'
        , neighbourFilesBB'
+       , largeNeighbourFilesBB'
        , aheadBB'
        , knightAttackBB'
        , kingAttackBB'
@@ -33,17 +34,24 @@ neighbourRanksBB' r = BitBoard (0x000000ffffffffff `shift` (8 * (fromEnum r - 2)
 
 
 neighbourFilesBB' :: File -> BitBoard
-neighbourFilesBB' = neighbourFilesBB'' . fromEnum
+neighbourFilesBB' f =
+  let p = if f == minBound then mempty else fileBB $ pred f
+      s = if f == maxBound then mempty else fileBB $ succ f
+  in p <> fileBB f <> s
+     
+
+largeNeighbourFilesBB' :: File -> BitBoard
+largeNeighbourFilesBB' = largeNeighbourFilesBB'' . fromEnum
   where
-    neighbourFilesBB'' 0 = BitBoard 0x0707070707070707
-    neighbourFilesBB'' 1 = BitBoard 0x0f0f0f0f0f0f0f0f
-    neighbourFilesBB'' 2 = BitBoard 0x1f1f1f1f1f1f1f1f
-    neighbourFilesBB'' 3 = BitBoard 0x3e3e3e3e3e3e3e3e
-    neighbourFilesBB'' 4 = BitBoard 0x7c7c7c7c7c7c7c7c
-    neighbourFilesBB'' 5 = BitBoard 0xf8f8f8f8f8f8f8f8
-    neighbourFilesBB'' 6 = BitBoard 0xf0f0f0f0f0f0f0f0
-    neighbourFilesBB'' 7 = BitBoard 0xe0e0e0e0e0e0e0e0
-    neighbourFilesBB''  _ = error "file out of range"
+    largeNeighbourFilesBB'' 0 = BitBoard 0x0707070707070707
+    largeNeighbourFilesBB'' 1 = BitBoard 0x0f0f0f0f0f0f0f0f
+    largeNeighbourFilesBB'' 2 = BitBoard 0x1f1f1f1f1f1f1f1f
+    largeNeighbourFilesBB'' 3 = BitBoard 0x3e3e3e3e3e3e3e3e
+    largeNeighbourFilesBB'' 4 = BitBoard 0x7c7c7c7c7c7c7c7c
+    largeNeighbourFilesBB'' 5 = BitBoard 0xf8f8f8f8f8f8f8f8
+    largeNeighbourFilesBB'' 6 = BitBoard 0xf0f0f0f0f0f0f0f0
+    largeNeighbourFilesBB'' 7 = BitBoard 0xe0e0e0e0e0e0e0e0
+    largeNeighbourFilesBB''  _ = error "file out of range"
 
 
 aheadBB' :: Rank -> Colour -> BitBoard
@@ -58,18 +66,23 @@ e4 = toSquare eFile fourthRank
 knightAttackBB' :: Square -> BitBoard
 knightAttackBB' s
   | s ==  e4  = BitBoard 44272527353856
-  | otherwise = neighbourFilesBB' (file s) .&. shift (knightAttackBB' e4) (fromEnum s - fromEnum e4)
+  | otherwise = largeNeighbourFilesBB' (file s)
+                .&. shift (knightAttackBB' e4) (fromEnum s - fromEnum e4)
 
 
 kingAttackBB' :: Square -> BitBoard
 kingAttackBB' s
   | s == e4   = BitBoard 241192927232
-  | otherwise = neighbourFilesBB' (file s) .&. shift (kingAttackBB' e4) (fromEnum s - fromEnum e4)
+  | otherwise = largeNeighbourFilesBB' (file s)
+                .&. shift (kingAttackBB' e4) (fromEnum s - fromEnum e4)
 
 
 pawnAttackBB' :: Square -> Colour -> BitBoard
-pawnAttackBB' pos c = let mask  = neighbourFilesBB' (file pos)
-                      in mconcat [ fromSquare (offset pos $ direction c n) | n <- [7, 9] ] .&. mask
+pawnAttackBB' pos c =
+  let mask  = largeNeighbourFilesBB' (file pos)
+  in mconcat [ fromSquare (offset pos $ direction c n)
+             | n <- [7, 9]
+             ] .&. mask
 
 
 lineBB' :: Square -> Square -> BitBoard
