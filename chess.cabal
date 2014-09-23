@@ -37,6 +37,7 @@ executable chess
                        parsec          ==3.1.*,
                        lrucache        ==1.1.*,
                        time            ==1.4.*,
+                       data-default    ==0.5.*,
                        QuickCheck      >= 2.6 && < 2.8
 
 
@@ -115,5 +116,9 @@ Test-Suite puzzle
                        silently        == 1.2.*,
                        blaze-html      == 0.7.*,
                        blaze-markup    == 0.6.*,
-                       parallel        == 3.2.*
+                       data-default    ==0.5.*,
+                       parallel        ==3.2.*,
+                       GA              ==1.0.*,
+                       random          ==1.0.*,
+                       optparse-applicative == 0.7.*
 

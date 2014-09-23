@@ -366,7 +366,7 @@ calcHash b =
 prop_Board :: Board -> Bool
 prop_Board b =
   let byColour = b^.whitePieces .|. b^.blackPieces
-      byType   = mconcat [ b^.(piecesByType' t)
+      byType   = mconcat [ b^.piecesByType' t
                          | t <- [ Queen, Rook, Knight, Bishop, Pawn]
                          ]
   in byColour == byType

@@ -20,6 +20,7 @@ import           System.Exit
 import           System.IO
 
 import           Control.Lens ((.~), (^.), (%~))
+import           Data.Default
 import           Text.ParserCombinators.Parsec
 
 import           Chess.Board hiding (hash)
@@ -36,7 +37,7 @@ uci = do
   hSetBuffering stdout NoBuffering
   a <- newTVarIO False
   p <- newTVarIO False
-  st <- newIORef $ mkSearchState a p
+  st <- newIORef $ mkSearchState a p def
 
   forever $ do
         line <- getLine

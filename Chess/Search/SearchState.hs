@@ -16,6 +16,7 @@ module Chess.Search.SearchState
        , tpcMiss
        , nCnt
        , clock
+       , evaluationConfig
        ) where
 
 ------------------------------------------------------------------------------
@@ -25,6 +26,7 @@ import Control.Lens
 import Data.Time.Clock
 
 import Chess.Board hiding (hash)
+import Chess.Evaluation
 import Chess.History
 import Chess.Killer
 import Chess.PVStore
@@ -35,18 +37,19 @@ import Chess.TransPosCache (TransPosCache, mkTransPosCache)
 ------------------------------------------------------------------------------
 -- | The state of the 'Search' monad
 data SearchState = SearchState
-                   { _board     :: Board
-                   , _aborted   :: TVar Bool
-                   , _pondering :: TVar Bool
-                   , _timeStats :: TimeStats
-                   , _tpc       :: TransPosCache
-                   , _kill      :: Killer
-                   , _pv        :: PVStore
-                   , _hist      :: History
-                   , _tpcHit    :: ! Int
-                   , _tpcMiss   :: ! Int
-                   , _nCnt      :: ! Int
-                   , _clock     :: Maybe UTCTime
+                   { _board            :: Board
+                   , _aborted          :: TVar Bool
+                   , _pondering        :: TVar Bool
+                   , _timeStats        :: TimeStats
+                   , _tpc              :: TransPosCache
+                   , _kill             :: Killer
+                   , _pv               :: PVStore
+                   , _hist             :: History
+                   , _tpcHit           :: ! Int
+                   , _tpcMiss          :: ! Int
+                   , _nCnt             :: ! Int
+                   , _clock            :: Maybe UTCTime
+                   , _evaluationConfig :: EvaluationConfig
                    }
 
 
@@ -62,6 +65,7 @@ data SearchState = SearchState
 mkSearchState
   :: TVar Bool -- ^ the signal to toggle to abort a search
   -> TVar Bool -- ^ the signal to toggle pondering
+  -> EvaluationConfig
   -> SearchState
 mkSearchState abort ponder =
   SearchState

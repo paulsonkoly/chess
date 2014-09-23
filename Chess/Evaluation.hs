@@ -1,13 +1,33 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiWayIf #-}
-{- | Chess evalution -}
+-- | Chess evalution
 module Chess.Evaluation
        ( evaluate
+       -- * Evaluation configuration
+       , EvaluationConfig
+       , kingSafetyAttackingKnights
+       , kingSafetyRayAttacks      
+       , castlePawnValue           
+       , rookOnSeventh             
+       , rookOnOpen                
+       , rookOnSemiOpen            
+       , bishopPair                
+       , bishopBadBishop           
+       , bishopBlockingPawns       
+       , knightOnRimSquares        
+       , pawnEndGamePassed         
+       , pawnEndGameDouble         
+       , pawnOpeningCentral        
+       , pawnOpeningLargeCentral   
+       , outpostCentral            
+       , outpostLargeCentral       
        ) where
 
 ------------------------------------------------------------------------------
-import           Control.Lens ((^.))
-
 import           Control.Monad (guard)
+
+import           Control.Lens
+import           Data.Default
 
 import           Chess.Board
 import           Chess.Move
@@ -18,16 +38,64 @@ import           Data.Monoid
 import           Data.Square
 
 
+------------------------------------------------------------------------------
+data EvaluationConfig = EvaluationConfig
+                        { _kingSafetyAttackingKnights :: ! Int
+                        , _kingSafetyRayAttacks       :: ! Int
+                        , _castlePawnValue            :: ! Int
+                        , _rookOnSeventh              :: ! Int
+                        , _rookOnOpen                 :: ! Int
+                        , _rookOnSemiOpen             :: ! Int
+                        , _bishopPair                 :: ! Int
+                        , _bishopBadBishop            :: ! Int
+                        , _bishopBlockingPawns        :: ! Int
+                        , _knightOnRimSquares         :: ! Int
+                        , _pawnEndGamePassed          :: ! Int
+                        , _pawnEndGameDouble          :: ! Int
+                        , _pawnOpeningCentral         :: ! Int
+                        , _pawnOpeningLargeCentral    :: ! Int
+                        , _outpostCentral             :: ! Int
+                        , _outpostLargeCentral        :: ! Int
+                        } deriving (Show, Read, Eq, Ord)
+
+
+$(makeLenses ''EvaluationConfig)
+
+
+------------------------------------------------------------------------------
+instance Default EvaluationConfig where
+  def = EvaluationConfig
+        { _kingSafetyAttackingKnights = 1
+        , _kingSafetyRayAttacks       = 1
+        , _castlePawnValue            = 3
+        , _rookOnSeventh              = 4
+        , _rookOnOpen                 = 4 
+        , _rookOnSemiOpen             = 3
+        , _bishopPair                 = 6
+        , _bishopBadBishop            = 1
+        , _bishopBlockingPawns        = 2
+        , _knightOnRimSquares         = 2
+        , _pawnEndGamePassed          = 5
+        , _pawnEndGameDouble          = 2
+        , _pawnOpeningCentral         = 2
+        , _pawnOpeningLargeCentral    = 1
+        , _outpostCentral             = 2
+        , _outpostLargeCentral        = 1
+        }
+
+
+type Evaluation = EvaluationConfig -> Board -> Colour -> Int
+
 
 ------------------------------------------------------------------------------
 -- | Evaluates the 'Board'
-evaluate :: Board -> Int
-evaluate b =
+evaluate :: EvaluationConfig -> Board -> Int
+evaluate ec b =
   if not (anyMove b)
   then if inCheck b (b^.next)
        then direction (b^.next) (-3000)
        else 0
-  else sum [ f b White - f b Black
+  else sum [ f ec b White - f ec b Black
            | f <- [ evaluateMaterial
                   , evaluateRookPosition
                   , evaluateKingSafety
@@ -42,18 +110,19 @@ evaluate b =
 
 ------------------------------------------------------------------------------
 -- Evaluate material
-evaluateMaterial :: Board -> Colour -> Int
-evaluateMaterial b c = sum [ w * numberOf b c pt
-                           | pt <- [ Queen,  Rook, Bishop, Knight, Pawn ]
-                           , let w = pieceValue pt
-                           ]
+evaluateMaterial :: Evaluation
+evaluateMaterial _ b c =
+  sum [ w * numberOf b c pt
+      | pt <- [ Queen,  Rook, Bishop, Knight, Pawn ]
+      , let w = pieceValue pt
+      ]
 
 
 ------------------------------------------------------------------------------
 -- number of enemy Knights in the Kings quadrant + number of ray pseudo
 -- attacks hitting the King.
-evaluateKingSafety :: Board -> Colour -> Int
-evaluateKingSafety b c =
+evaluateKingSafety :: Evaluation
+evaluateKingSafety ec b c =
   let kingP            = kingByColour c b
       opp              = T.opponent c
       (kingF, kingR)   = (file kingP, rank kingP)
@@ -64,7 +133,9 @@ evaluateKingSafety b c =
                          [ piecesOf b opp pt .&. pseudoAttackBB pt kingP
                          | pt <- [ Queen, Rook, Bishop ]
                          ]
-  in negate $ attackingKnights + rayAttacks
+  in negate
+     $ ec^.kingSafetyAttackingKnights * attackingKnights
+     + ec^.kingSafetyRayAttacks * rayAttacks
 
 
 ------------------------------------------------------------------------------     
@@ -72,8 +143,8 @@ evaluateKingSafety b c =
 -- castle position, taking into account whether we have already castled (which
 -- is worth more), counting the pawns still in the second rank, and scoring
 -- down artifical castles that trap the Rook.
-evaluateCastle :: Board -> Colour -> Int
-evaluateCastle b c =
+evaluateCastle :: Evaluation
+evaluateCastle ec b c =
   let castles          = toCastleList (b^.castleRightsByColour c)
       pawnR            = rankBB $ pawnsRank c
       baseR            = rankBB $ baseRank c
@@ -89,7 +160,7 @@ evaluateCastle b c =
   in if piecesOf b (T.opponent c) Queen == mempty
      then 0
      else if null castles
-          then 3 * if
+          then ec^.castlePawnValue * if
             | alreadyCs Short -> castleValue Short
             | alreadyCs Long  -> castleValue Long
             | otherwise       -> 0 
@@ -99,8 +170,8 @@ evaluateCastle b c =
 ------------------------------------------------------------------------------     
 -- Value our Rooks on open files, plus value them even more on the seventh
 -- rank
-evaluateRookPosition :: Board -> Colour -> Int
-evaluateRookPosition b c =
+evaluateRookPosition :: Evaluation
+evaluateRookPosition ec b c =
   let seventhR    = pawnsRank (T.opponent c)
       openF' pwns = complement (rankBB seventhR) .&.
                     mconcat [ f | f <- map fileBB files, f .&. pwns == mempty]
@@ -110,7 +181,9 @@ evaluateRookPosition b c =
       onSeventh   = countRs $ rankBB seventhR
       onSemiOpen  = countRs semiOpenF
       onOpen      = countRs openF
-  in 4 * onSeventh * onSeventh +  4 * onOpen + 3 * onSemiOpen
+  in ec^.rookOnSeventh * onSeventh * onSeventh
+     + ec^.rookOnOpen * onOpen
+     + ec^.rookOnSemiOpen * onSemiOpen
 
 
 ------------------------------------------------------------------------------     
@@ -120,28 +193,31 @@ evaluateRookPosition b c =
 -- are blocked. Knights are generally better in closed positions whereas
 -- bishops are better in open positions. This only matters in the opening or
 -- middle game though.
-evaluateBishopPosition :: Board -> Colour -> Int
-evaluateBishopPosition b c =
+evaluateBishopPosition :: Evaluation
+evaluateBishopPosition ec b c =
   let badBishop' bc = if piecesOf b c Bishop .&. bc /= mempty
                       then popCount $ bc .&. piecesOf b c Pawn
                       else 0
       badBishop     = badBishop' lightSquares + badBishop' darkSquares
       hasPair c'    = piecesOf b c' Bishop .&. lightSquares /= mempty
                       && piecesOf b c' Bishop .&. darkSquares /= mempty
-      bishopPair    = hasPair c && not (hasPair (T.opponent c))
+      bishopPair'   = hasPair c && not (hasPair (T.opponent c))
       forward       = foldr (<>) mempty [ aheadBB (rank p) c
                                           .&. pseudoAttackBB Bishop p
                                           .&. piecesOf b c Pawn
                                         | p <- toList $ piecesOf b c Bishop
                                         ]
-  in (if bishopPair then 6 else 0) - badBishop - 2 * popCount forward
+  in (if bishopPair' then ec^.bishopPair else 0)
+     - ec^.bishopBadBishop * badBishop
+     - ec^.bishopBlockingPawns * popCount forward
 
 
 ------------------------------------------------------------------------------     
 -- Knight on the rim is always dim
-evaluateKnightPosition :: Board -> Colour -> Int
-evaluateKnightPosition b c =
-  (-2) * popCount (rimSquares .&. piecesOf b c Knight)
+evaluateKnightPosition :: Evaluation
+evaluateKnightPosition ec b c =
+  negate $
+  ec^.knightOnRimSquares * popCount (rimSquares .&. piecesOf b c Knight)
 
 
 ------------------------------------------------------------------------------
@@ -151,10 +227,10 @@ endGame b = popCount (occupancy b) < 16
 
 
 ------------------------------------------------------------------------------
--- In end games count the passed or double pawns. In the middle game or opening
--- count the pawns fighting for the centre.
-evaluatePawnPosition :: Board -> Colour -> Int
-evaluatePawnPosition b c =
+-- In end games count the passed or double pawns. In the middle game or
+-- opening count the pawns fighting for the centre.
+evaluatePawnPosition :: Evaluation
+evaluatePawnPosition ec b c =
   let myPawns       = piecesOf b c Pawn
       aheadSq p     = fileBB (file p) .&. aheadBB (rank p) c `xor` fromSquare p
       blocking f    = filter f [ aheadSq p | p <- toList myPawns ]
@@ -165,21 +241,22 @@ evaluatePawnPosition b c =
       centralized   = centralSquares .&. myPawns
       wkCentralized = largeCentralSquares .&. myPawns
   in if endGame b
-     then 5 * passed - 2 * double
-     else 2 * popCount centralized  + popCount wkCentralized
+     then ec^.pawnEndGamePassed * passed - ec^.pawnEndGameDouble * double
+     else ec^.pawnOpeningCentral * popCount centralized
+          + ec^.pawnOpeningLargeCentral * popCount wkCentralized
 
 
 ------------------------------------------------------------------------------
 -- Bishop or Knight outpost on the central Squares / large central Squares
-evaluateOutpost :: Board -> Colour -> Int
-evaluateOutpost b c =
+evaluateOutpost :: Evaluation
+evaluateOutpost ec b c =
   let minorPieces  = mconcat [ piecesOf b c pt | pt <- [ Bishop, Knight ]]
       central      = centralSquares .&. minorPieces
       myFifth      = case c of
                       White -> fifthRank
                       Black -> fourthRank
       largeCentral = largeCentralSquares
-                     .&. (complement centralSquares)
+                     .&. complement centralSquares
                      .&. aheadBB myFifth c
                      .&. minorPieces
       evalPosts bb = sum $ do
@@ -187,9 +264,10 @@ evaluateOutpost b c =
         let (f, r) = (file sq, rank sq)
             ahead  = aheadBB r c .&. complement (rankBB r)
             fs     = neighbourFilesBB f .&. complement (fileBB f)
-        guard $ (piecesOf b (T.opponent c) Pawn) .&. ahead .&. fs == mempty
+        guard $ piecesOf b (T.opponent c) Pawn .&. ahead .&. fs == mempty
         return 3
-  in 2 * evalPosts central + evalPosts largeCentral
+  in ec^.outpostCentral * evalPosts central
+     + ec^.outpostLargeCentral * evalPosts largeCentral
 
 
 ------------------------------------------------------------------------------

@@ -12,6 +12,7 @@ import           Data.Bits (popCount)
 import           Data.Foldable (forM_)
 
 import           Control.Lens ((+=), (.=), (^.), (%=), use)
+import           Data.Default
 import           Data.Time.Clock
 
 import           Chess.Board
@@ -324,7 +325,7 @@ negaScout mx d alpha' beta' c =
     if mate
       then do    
         nCnt += 1
-        liftM (\b -> Just $ SearchResult [] $ c * evaluate b) $ use board
+        liftM (\b -> Just $ SearchResult [] $ c * evaluate def b) $ use board
       else do
         ml   <- liftM moves $ use board
         mr' <- withStores ml mr mx d $ \ml' ->
@@ -358,7 +359,7 @@ quiscene
   -> Search (Maybe SearchResult)
 quiscene mx d alpha' beta' c pm =
   withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
-    standPat <- liftM ((c*) . evaluate) (use board)
+    standPat <- liftM ((c*) . evaluate def) (use board)
     nCnt += 1
     brd <- use board
     if standPat >= beta

@@ -73,7 +73,7 @@ legalCheck l psm@(PseudoLegalMove m) =
     let f  = if l^.inCheck'
              then legal (l^.board)
              else ok (l^.board) (l^.pins)
-        nl = (nubs %~ (S.insert psm)) l
+        nl = (nubs %~ S.insert psm) l
     in (nl, if f m then Just m else Nothing)
 
 
