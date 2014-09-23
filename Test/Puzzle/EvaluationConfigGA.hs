@@ -15,11 +15,12 @@ import GA(Entity(..), GAConfig(..))
 import Chess.Evaluation
 import Test.Puzzle.RunEPD
 
+
 ------------------------------------------------------------------------------
 parameterRange :: (Int, Int)
 parameterRange = (0, 15)
 numberOfParameters :: Int
-numberOfParameters = 15
+numberOfParameters = 16
 
 
 type EvaluationConfigGenome = [ Int ]
@@ -57,15 +58,17 @@ instance Random EvaluationConfigGenome where
 ------------------------------------------------------------------------------
 instance Entity EvaluationConfigGenome Int [ String ] () IO where
 
-  genRandom _ _ = randomIO
+  genRandom _ = return . fst . random . mkStdGen
 
-  crossover _ _ _ a b = do
-    spl <- randomRIO (0, numberOfParameters)
+  crossover _ _ seed a b = do
+    let g   = mkStdGen seed
+        spl = fst $ randomR (0, numberOfParameters) g
     return $ Just $ take spl a ++ drop spl b
 
-  mutation _ _ _ e = do
-    pos <- randomRIO (0, numberOfParameters)
-    val <- randomRIO parameterRange
+  mutation _ _ seed e = do
+    let g         = mkStdGen seed
+        (pos, g') = randomR (0, numberOfParameters) g
+        val       = fst $ randomR parameterRange g'
     return $ Just $ take pos e ++ (val : drop (pos + 1) e)
 
   score fn e = do
