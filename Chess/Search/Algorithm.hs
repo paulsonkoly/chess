@@ -325,9 +325,10 @@ negaScout mx d alpha' beta' c =
     if mate
       then do    
         nCnt += 1
-        liftM (\b -> Just $ SearchResult [] $ c * evaluate def b) $ use board
+        ec   <- use evaluationConfig
+        liftM (\b -> Just $ SearchResult [] $ c * evaluate ec b) $ use board
       else do
-        ml   <- liftM moves $ use board
+        ml  <- liftM moves $ use board        
         mr' <- withStores ml mr mx d $ \ml' ->
           iterateMoves ml' d alpha beta (mx == d) $ \f m a b ->
                withMove m $ m
@@ -359,7 +360,8 @@ quiscene
   -> Search (Maybe SearchResult)
 quiscene mx d alpha' beta' c pm =
   withTransPosCache mx d alpha' beta' $ \alpha beta mr -> do
-    standPat <- liftM ((c*) . evaluate def) (use board)
+    ec       <- use evaluationConfig
+    standPat <- liftM ((c*) . evaluate ec) (use board)
     nCnt += 1
     brd <- use board
     if standPat >= beta
