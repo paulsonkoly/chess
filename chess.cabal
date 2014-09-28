@@ -14,11 +14,18 @@ category:            Game
 build-type:          Simple
 cabal-version:       >=1.9.2
 
+flag TTStats
+  description:       Print transpositional table statistics
+  default:           False
+
 
 executable chess
   main-is:             Chess/Main.hs
   hs-source-dirs:      .
   extensions:          TemplateHaskell
+                       CPP
+  if flag(TTStats)
+    cpp-options:       -DTTStats
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts -auto-all

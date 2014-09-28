@@ -12,7 +12,6 @@ import           Data.Bits (popCount)
 import           Data.Foldable (forM_)
 
 import           Control.Lens ((+=), (.=), (^.), (%=), use)
-import           Data.Default
 import           Data.Time.Clock
 
 import           Chess.Board
@@ -298,17 +297,26 @@ iterateMoves ml d alpha beta rep ac = do
                      | otherwise -> do
                          when rep $ report $ "currmove " ++ renderShortMove m
                            ++ " currmovenumber " ++ show n
+#if defined (TTStats)
+                         hit  <- use tpcHit
+                         miss <- use tpcMiss
+                         when rep $ report
+                           $ "tthit " ++ (show hit)
+                           ++ " miss "   ++ (show miss)
+                           ++ " ratio "  ++ (show $ hitRatio hit miss)
+#endif
                          go leg' (n+1) prev ms)
                  mnxt
              Nothing -> go leg' n prev ms
 
--- percentage :: Int -> Int -> Int
--- percentage a b = if a == 0 then 0 else 100 * b `div` a
+#if defined (TTStats)
+percentage :: Int -> Int -> Int
+percentage a b = if a == 0 then 0 else 100 * b `div` a
 
 
--- hitRatio :: SearchState -> Int
--- hitRatio st = percentage ((st^.tpcHit) + (st^.tpcMiss)) (st^.tpcHit)
-
+hitRatio :: Int -> Int -> Int
+hitRatio hit miss = percentage (hit + miss) hit
+#endif
 
 ------------------------------------------------------------------------------
 -- The negascout search with transpos cache and killer.
