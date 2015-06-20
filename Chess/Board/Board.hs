@@ -228,11 +228,11 @@ opponentsPieces b = piecesByColour b (b^.Chess.Board.Board.opponent)
 ------------------------------------------------------------------------------
 -- | pieces of a player of a specific type
 piecesOf :: Board -> Colour -> PieceType -> BitBoard
-piecesOf b colour Pawn   = b^.pawns'  .&. piecesByColour b colour
-piecesOf b colour Rook   = b^.rooks'  .&. piecesByColour b colour
-piecesOf b colour Knight = b^.knights'.&. piecesByColour b colour
-piecesOf b colour Bishop = b^.bishops'.&. piecesByColour b colour
-piecesOf b colour Queen  = b^.queens' .&. piecesByColour b colour
+piecesOf b colour Pawn   = b^.pawns'  .&. b^.piecesByColour' colour
+piecesOf b colour Rook   = b^.rooks'  .&. b^.piecesByColour' colour
+piecesOf b colour Knight = b^.knights'.&. b^.piecesByColour' colour
+piecesOf b colour Bishop = b^.bishops'.&. b^.piecesByColour' colour
+piecesOf b colour Queen  = b^.queens' .&. b^.piecesByColour' colour
 piecesOf b colour King   = fromSquare $ b^.kingByColour' colour
 {-# INLINE piecesOf #-}
 
