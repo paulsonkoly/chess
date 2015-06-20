@@ -100,6 +100,9 @@ Test-Suite puzzle
   type:                exitcode-stdio-1.0
   main-is:             Test/Puzzle/Main.hs
   hs-source-dirs:      .
+  extensions:          CPP
+  if flag(TTStats)
+    cpp-options:       -DTTStats
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -with-rtsopts=-N -threaded
