@@ -173,14 +173,14 @@ evaluateCastle ec b c =
 evaluateRookPosition :: Evaluation
 evaluateRookPosition ec b c =
   let seventhR    = pawnsRank (T.opponent c)
-      openF' pwns = complement (rankBB seventhR) .&.
-                    mconcat [ f | f <- map fileBB files, f .&. pwns == mempty]
-      semiOpenF   = openF' $ piecesOf b c Pawn
-      openF       = openF' $ pawns b
+      rookFiles   = map (fileBB . file) $ toList
+                    $ piecesOf b c Rook .&. complement (rankBB seventhR)
+      onSemiOpen' = filter (\f -> f .&. piecesOf b c Pawn == mempty) rookFiles
+      onOpen'     = filter (\f -> f .&. pawns b == mempty) onSemiOpen'
+      onOpen      = length onOpen'
+      onSemiOpen  = length onSemiOpen'
       countRs bb  = popCount $ bb .&. piecesOf b c Rook
       onSeventh   = countRs $ rankBB seventhR
-      onSemiOpen  = countRs semiOpenF
-      onOpen      = countRs openF
   in ec^.rookOnSeventh * onSeventh * onSeventh
      + ec^.rookOnOpen * onOpen
      + ec^.rookOnSemiOpen * onSemiOpen
