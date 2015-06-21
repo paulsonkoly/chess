@@ -52,9 +52,10 @@ Test-Suite perft
   type:                exitcode-stdio-1.0
   main-is:             Test/Perft/Main.hs
   hs-source-dirs:      .
+  extensions:          TemplateHaskell
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
-                       -rtsopts
+                       -rtsopts -auto-all
   build-depends:       base            < 5,
                        mtl             ==2.1.*,
                        ghc-prim,
@@ -76,6 +77,7 @@ Test-Suite suite
   type:                exitcode-stdio-1.0
   main-is:             Test/Suite/Main.hs
   hs-source-dirs:      .
+  extensions:          TemplateHaskell
   ghc-options:         -Wall -fwarn-tabs -O2
                        -funbox-strict-fields
                        -rtsopts
@@ -101,6 +103,7 @@ Test-Suite puzzle
   main-is:             Test/Puzzle/Main.hs
   hs-source-dirs:      .
   extensions:          CPP
+                       TemplateHaskell
   if flag(TTStats)
     cpp-options:       -DTTStats
   ghc-options:         -Wall -fwarn-tabs -O2
