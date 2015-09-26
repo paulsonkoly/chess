@@ -78,7 +78,7 @@ bitBoardC = ConE $ mkName "BitBoard"
 mkSignature :: Name -> [ Name ] -> Dec
 mkSignature name ns = SigD name (ForallT
                                  [ PlainTV tvar| tvar <- ns ]
-                                 [ ClassP (mkName nm) [ VarT tvar ]
+                                 [ AppT (ConT $ mkName nm) (VarT tvar)
                                  | tvar <- ns
                                  , nm <- ["Enum", "Bounded" ]
                                  ]

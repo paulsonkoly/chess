@@ -100,19 +100,23 @@ data Config = Perft Board Int | Siblings Board
 
 
 ------------------------------------------------------------------------------
-readInt :: String -> Maybe Int
-readInt s = fst <$> listToMaybe (reads s)
+fenArgument :: Parser Board
+fenArgument = argument (eitherReader f) (metavar "FEN")
+  where f s = case fromFEN s of
+          Just b  -> Right b
+          Nothing -> Left "Cannot parse FEN option"
 
 
 ------------------------------------------------------------------------------
-fenArgument :: Parser Board
-fenArgument = argument fromFEN (metavar "FEN")
-
+intArgument :: Parser Int
+intArgument = argument (eitherReader f) (metavar "DEPTH")
+  where f s = case reads s of                                        
+          (i,_):_ -> Right i
+          []      -> Left "Cannot parse integer option"
 
 ------------------------------------------------------------------------------
 fenCommandParser :: Parser Config
-fenCommandParser =
-  Perft <$> fenArgument <*> argument readInt (metavar "DEPTH")
+fenCommandParser = Perft <$> fenArgument <*> intArgument
 
 
 ------------------------------------------------------------------------------

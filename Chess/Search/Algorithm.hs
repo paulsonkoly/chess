@@ -5,7 +5,6 @@ module Chess.Search.Algorithm
        ) where
 
 ------------------------------------------------------------------------------
-import           Control.Applicative ((<$>))
 import           Control.Monad (liftM, when)
 import           Control.Monad.State (get, liftIO)
 import           Data.Bits (popCount)

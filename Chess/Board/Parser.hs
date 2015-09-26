@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Chess.Board.Parser
        ( boardParser
        , FEN(..)
@@ -7,8 +8,6 @@ module Chess.Board.Parser
 
 import Control.Monad
 import Data.Char
-import Data.Functor
-import Data.Monoid
 
 import Control.Lens
 import Text.ParserCombinators.Parsec

@@ -44,7 +44,6 @@ import           Control.Monad.State
 import           Control.Monad.Loops
 import           Control.Monad.Random
 import           Control.Lens
-import           Data.Monoid
 import qualified Test.QuickCheck as Q hiding ((.&.))
 
 import           Data.ChessTypes

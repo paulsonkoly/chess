@@ -31,19 +31,19 @@ executable chess
                        -rtsopts -auto-all
   build-depends:       base            < 5,
                        stm             ==2.4.*,
-                       mtl             ==2.1.*,
+                       mtl             ==2.2.*,
                        ghc-prim,
                        template-haskell < 3,
-                       lens            ==4.1.*,
+                       lens            ==4.13.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
+                       vector-th-unbox ==0.2.*,
                        MonadRandom     ==0.1.*,
                        monad-loops     ==0.4.*,
                        containers      ==0.5.*,
                        parsec          ==3.1.*,
                        lrucache        ==1.1.*,
-                       time            ==1.4.*,
+                       time            >=1.4 && < 1.6,
                        data-default    ==0.5.*,
                        QuickCheck      >= 2.6 && < 2.8
 
@@ -57,19 +57,19 @@ Test-Suite perft
                        -funbox-strict-fields
                        -rtsopts -auto-all
   build-depends:       base            < 5,
-                       mtl             ==2.1.*,
+                       mtl             ==2.2.*,
                        ghc-prim,
                        template-haskell < 3,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
-                       lens            ==4.1.*,
+                       lens            ==4.13.*,
                        MonadRandom     ==0.1.*,
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
+                       vector-th-unbox ==0.2.*,
                        parsec          ==3.1.*,
-                       optparse-applicative == 0.7.*,
+                       optparse-applicative == 0.11.*,
                        QuickCheck      >= 2.6 && < 2.8
 
 
@@ -82,17 +82,17 @@ Test-Suite suite
                        -funbox-strict-fields
                        -rtsopts
   build-depends:       base            < 5,
-                       mtl             ==2.1.*,
+                       mtl             ==2.2.*,
                        ghc-prim,
                        template-haskell < 3,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
-                       lens            ==4.1.*,
+                       lens            ==4.13.*,
                        MonadRandom     ==0.1.*,
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
+                       vector-th-unbox ==0.2.*,
                        parsec          ==3.1.*,
                        QuickCheck      >= 2.6 && < 2.8,
                        test-framework  ==0.8.*,
@@ -110,20 +110,20 @@ Test-Suite puzzle
                        -funbox-strict-fields
                        -with-rtsopts=-N -threaded
   build-depends:       base            < 5,
-                       mtl             ==2.1.*,
+                       mtl             ==2.2.*,
                        stm             ==2.4.*,
                        ghc-prim,
                        template-haskell < 3,
                        HUnit           ==1.2.*,
                        monad-loops     ==0.4.*,
-                       lens            ==4.1.*,
+                       lens            ==4.13.*,
                        MonadRandom     ==0.1.*,
                        containers      ==0.5.*,
                        bits-extras     ==0.1.*,
                        vector          ==0.10.*,
-                       vector-th-unbox ==0.2.0.1,
+                       vector-th-unbox ==0.2.*,
                        parsec          ==3.1.*,
-                       time            ==1.4.*,
+                       time            >=1.4 && < 1.6,
                        lrucache        ==1.1.*,
                        QuickCheck      >= 2.6 && < 2.8,
                        silently        == 1.2.*,
@@ -132,6 +132,6 @@ Test-Suite puzzle
                        data-default    ==0.5.*,
                        parallel        ==3.2.*,
                        GA              ==1.0.*,
-                       random          ==1.0.*,
-                       optparse-applicative == 0.7.*
+                       random          ==1.1.*,
+                       optparse-applicative == 0.11.*
 

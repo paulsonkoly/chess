@@ -17,8 +17,6 @@ module Data.ChessTypes
        ) where
 
 import           Data.Char
-import           Data.Monoid
-
 
 newtype CastlingRights = CastlingRights (Bool, Bool) deriving (Show, Read, Eq, Bounded)
 

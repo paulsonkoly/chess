@@ -31,7 +31,6 @@ module Chess.TimeControl
        ) where
 
 ------------------------------------------------------------------------------
-import Control.Applicative ((<$>))
 import Control.Monad (join)
 import Data.Maybe (fromJust, isJust, isNothing, listToMaybe, fromMaybe)
 

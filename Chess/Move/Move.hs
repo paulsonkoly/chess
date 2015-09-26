@@ -24,9 +24,7 @@ module Chess.Move.Move
 
 import           Control.Monad (liftM)
 import           Data.Char (toUpper)
-import           Data.Functor
 import           Data.Maybe
-import           Data.Monoid (mempty)
 
 import           Control.Lens hiding (from, to)
 import           Data.Vector.Unboxed ((!))

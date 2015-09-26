@@ -428,7 +428,7 @@ castleQuiet b = castleMoves b False
 pawnQuietMoves :: Board -> [ Move ]
 pawnQuietMoves b = do
   (f, t, _) <- pawnAdvanceSquares b
-  concatMap promote $ return $ defaultMove f t Pawn (b^.next)
+  concatMap promote [ defaultMove f t Pawn (b^.next) ]
 
 
 ------------------------------------------------------------------------------

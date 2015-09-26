@@ -21,8 +21,6 @@ module Data.BitBoard.Values
        , module P
        ) where
 
-import           Data.Monoid
-
 import qualified Data.Vector.Unboxed as V
 import qualified Control.Monad.Random as R
 

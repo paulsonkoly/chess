@@ -8,7 +8,6 @@ module Chess.Search.Search
   , isPondering
   ) where
 
-import Control.Applicative ((<*>), Applicative, pure)
 import Control.Concurrent.STM (readTVarIO)
 import Control.Monad.State
 

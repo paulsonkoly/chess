@@ -42,7 +42,7 @@ module Chess.Board.Board
 import           Control.Monad
 import           Data.Char
 import           Data.Maybe
-import           Data.Monoid
+
 import           Data.Word
 
 import           Control.Lens
@@ -197,7 +197,7 @@ pieceColourAt b pos
 
 
 ------------------------------------------------------------------------------
--- | the occupancy \Data.BitBoard\
+-- | the occupancy 'Data.BitBoard'
 occupancy :: Board -> BitBoard
 occupancy b = b^.whitePieces
               .|. b^.blackPieces
@@ -207,7 +207,7 @@ occupancy b = b^.whitePieces
 
 
 ------------------------------------------------------------------------------
--- | the empty squares \Data.BitBoard\
+-- | the empty squares 'Data.BitBoard'
 vacated :: Board -> BitBoard
 vacated = complement . occupancy
 {-# INLINE vacated #-}

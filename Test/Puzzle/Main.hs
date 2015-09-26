@@ -2,7 +2,6 @@ module Main(main) where
 
 import Control.Monad (void)
 import Control.Monad.Random (getStdGen)
-import Data.Monoid (mempty)
 
 import Data.Default
 import GA (evolveVerbose, Archive)
@@ -32,7 +31,7 @@ data Config = HTMLReport [ String ] | Genetic [ String ] | Score [ String ]
 
 
 fileNamesParser :: Parser [ String ]
-fileNamesParser = arguments1 Just mempty
+fileNamesParser = some $ argument (eitherReader Right) mempty
 
 ------------------------------------------------------------------------------
 commandParser :: Parser Config

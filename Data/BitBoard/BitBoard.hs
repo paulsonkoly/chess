@@ -106,11 +106,3 @@ instance Arbitrary BitBoard where
 
   -- Take a single square out
   shrink b = [ b .&. complement (fromSquare p) | p <- toList b ]
-
-
-
-
-
-
-
-

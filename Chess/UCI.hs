@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 -- | Module for UCI protocol.
 --
 -- This module drives the engine (starts the search) in response to the GUI,
@@ -9,7 +10,6 @@ module Chess.UCI
 
 
 ------------------------------------------------------------------------------
-import           Control.Applicative ((<$>))
 import           Control.Concurrent
 import           Control.Concurrent.STM
 import           Control.Monad
