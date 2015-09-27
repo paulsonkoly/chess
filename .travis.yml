@@ -5,4 +5,4 @@ ghc:
 script:
   - cabal configure && cabal build
 install:
-  - cabal install --enable-tests --only-dependencies --max-backjumps=-1
+  - cabal install --enable-tests --only-dependencies --max-backjumps=-1 --reorder-goals
