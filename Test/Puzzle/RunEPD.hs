@@ -6,7 +6,6 @@ module Test.Puzzle.RunEPD
        , runEPD
        ) where
 
-import           Control.Applicative ((<$>))
 import           Control.Monad (when, forM_, join, liftM)
 import qualified Data.Foldable as F
 
