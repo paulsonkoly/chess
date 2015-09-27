@@ -1,6 +1,8 @@
 language: haskell
 ghc:
   - 7.8
-  - '7.10'
+#  - '7.10'  ## not supported yet
 script:
-  - cabal configure -fFOO && cabal build
+  - cabal configure && cabal build
+install:
+  - cabal install --enable-tests --only-dependencies --max-backjumps=-1
