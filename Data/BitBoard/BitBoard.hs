@@ -23,7 +23,7 @@ module Data.BitBoard.BitBoard
 import           Prelude hiding (toInteger)
 import           Data.Word
 import           Data.Bits
-import           Data.Bits.Extras
+import qualified Data.Bits.Extras as BE
 import           Data.Monoid
 
 import           Data.Vector.Unboxed.Deriving
@@ -88,7 +88,7 @@ toList :: BitBoard -> [ Square ]
 toList (BitBoard b) = if b == 0
    then []
    else
-      let bp = fromIntegral $ trailingZeros b
+      let bp = pred $ fromIntegral $ BE.rank b
       in  toEnum bp : toList (BitBoard $ b `xor` bit bp)
 {-# INLINE toList #-}
 
